@@ -10,9 +10,16 @@ A modern, user-friendly graphical interface for yt-dlp with comprehensive downlo
 - 📝 **Subtitle Support**: Download subtitles and auto-generated captions
 - 🖼️ **Thumbnail & Metadata**: Save thumbnails and video descriptions
 - 📁 **Custom Output Directory**: Choose where to save your downloads
-- 📊 **Real-time Progress**: Live download progress and logging
+- 📊 **Real-time Progress**: Live download progress with percentage tracking
 - 🔄 **Built-in Updater**: Keep yt-dlp up-to-date with one click
 - 🧹 **Clear Log**: Clean log output to keep workspace organized
+- 🎬 **Playlist Support**: Download entire playlists with one click
+- 🛑 **Cancel Downloads**: Stop downloads in progress at any time
+- ⚡ **Speed Limiting**: Throttle download speed to save bandwidth
+- 💾 **Settings Persistence**: Automatically saves your preferences
+- ⌨️ **Keyboard Shortcuts**: Quick actions with keyboard shortcuts
+- 📋 **Clipboard Auto-Detection**: Automatically detects and pastes URLs from clipboard
+- ✅ **URL Validation**: Validates URLs before attempting download
 
 ## Setup
 
@@ -72,9 +79,38 @@ This GUI supports all sites that yt-dlp supports, including:
 ## Options Explained
 
 - **Video Quality**: Select the maximum quality to download
+- **Video Format**: Choose output video container/format (MP4, MKV, WEBM, AVI, FLV, or Auto)
 - **Audio Format**: Choose audio format when extracting audio only
 - **Extract Audio Only**: Download only the audio track
 - **Download Subtitles**: Save available subtitles
 - **Auto-generated Subtitles**: Include auto-generated captions
 - **Download Thumbnail**: Save video thumbnail image
 - **Save Description**: Save video description as text file
+- **Download Playlist**: Download entire playlist (if URL is a playlist)
+- **Speed Limit**: Set maximum download speed in KB/s (0 = unlimited)
+
+## Keyboard Shortcuts
+
+- **Ctrl+V**: Paste URL from clipboard (when a valid URL is detected)
+- **Enter**: Start download (when URL field is focused)
+- **Ctrl+L**: Clear log output
+
+## New Features Details
+
+### Cancel Downloads
+Click the "Cancel" button that appears during download to stop the current operation. The download will be terminated gracefully.
+
+### Playlist Support
+Enable "Download Playlist" checkbox to download all videos from a playlist URL. The app automatically detects playlists.
+
+### Speed Limiting
+Set a download speed limit to avoid saturating your bandwidth. Useful when you need to use the internet for other tasks while downloading.
+
+### Settings Persistence
+All your preferences (quality, audio format, checkboxes, output directory, etc.) are automatically saved and restored when you reopen the application.
+
+### Clipboard Auto-Detection
+The app monitors your clipboard and automatically detects valid video URLs. If the URL field is empty, it will auto-paste the detected URL for convenience.
+
+### Video Format Selection
+Choose your preferred video container format (MP4, MKV, WEBM, AVI, or FLV). The app will automatically merge and re-encode the video to your selected format. Use "Auto (Best)" to let yt-dlp choose the best available format without conversion.

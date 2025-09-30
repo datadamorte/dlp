@@ -2,16 +2,21 @@ import sys
 import os
 import subprocess
 import threading
+import json
+import re
+from urllib.parse import urlparse
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, 
                             QCheckBox, QComboBox, QGroupBox, QProgressBar, QFileDialog,
-                            QGridLayout, QSpacerItem, QSizePolicy, QFrame)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt5.QtGui import QFont, QPalette, QColor
+                            QGridLayout, QSpacerItem, QSizePolicy, QFrame, QSpinBox,
+                            QShortcut)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings
+from PyQt5.QtGui import QFont, QPalette, QColor, QKeySequence
 
 
 class DownloadThread(QThread):
     progress = pyqtSignal(str)
+    progress_percent = pyqtSignal(int)
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
@@ -20,11 +25,29 @@ class DownloadThread(QThread):
         self.url = url
         self.options = options
         self.output_path = output_path
+        self.process = None
+        self._is_cancelled = False
+
+    def cancel(self):
+        """Cancel the download process."""
+        self._is_cancelled = True
+        if self.process:
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=3)
+            except:
+                try:
+                    self.process.kill()
+                except:
+                    pass
 
     def run(self):
         try:
             # Build yt-dlp command
             cmd = ['yt-dlp.exe']
+            
+            # Add progress template for better parsing
+            cmd.extend(['--newline', '--no-colors'])
             
             # Add options based on selections
             if self.options.get('format'):
@@ -32,6 +55,13 @@ class DownloadThread(QThread):
             
             if self.options.get('extract_audio'):
                 cmd.extend(['-x', '--audio-format', self.options.get('audio_format', 'mp3')])
+            else:
+                # Add video format/container preference
+                video_format = self.options.get('video_format')
+                if video_format and video_format != 'Auto (Best)':
+                    cmd.extend(['--merge-output-format', video_format.lower()])
+                    # Also add --recode-video to ensure the format is correct
+                    cmd.extend(['--recode-video', video_format.lower()])
             
             if self.options.get('subtitle'):
                 cmd.append('--write-subs')
@@ -44,6 +74,19 @@ class DownloadThread(QThread):
             if self.options.get('description'):
                 cmd.append('--write-description')
             
+            # Playlist options
+            if self.options.get('playlist'):
+                if self.options.get('playlist_start'):
+                    cmd.extend(['--playlist-start', str(self.options['playlist_start'])])
+                if self.options.get('playlist_end'):
+                    cmd.extend(['--playlist-end', str(self.options['playlist_end'])])
+            else:
+                cmd.append('--no-playlist')
+            
+            # Speed limit
+            if self.options.get('speed_limit') and self.options['speed_limit'] > 0:
+                cmd.extend(['-r', f"{self.options['speed_limit']}K"])
+            
             # Output directory
             if self.output_path:
                 cmd.extend(['-o', f'{self.output_path}/%(title)s.%(ext)s'])
@@ -52,7 +95,7 @@ class DownloadThread(QThread):
             cmd.append(self.url)
             
             # Run command
-            process = subprocess.Popen(
+            self.process = subprocess.Popen(
                 cmd, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.STDOUT, 
@@ -61,15 +104,31 @@ class DownloadThread(QThread):
                 universal_newlines=True
             )
             
-            for line in process.stdout:
-                self.progress.emit(line.strip())
+            for line in self.process.stdout:
+                if self._is_cancelled:
+                    break
+                    
+                line = line.strip()
+                if line:
+                    self.progress.emit(line)
+                    
+                    # Parse progress percentage
+                    progress_match = re.search(r'(\d+\.\d+)%', line)
+                    if progress_match:
+                        try:
+                            percent = float(progress_match.group(1))
+                            self.progress_percent.emit(int(percent))
+                        except:
+                            pass
             
-            process.wait()
+            self.process.wait()
             
-            if process.returncode == 0:
+            if self._is_cancelled:
+                self.error.emit("Download cancelled by user")
+            elif self.process.returncode == 0:
                 self.finished.emit("Download completed successfully!")
             else:
-                self.error.emit(f"Download failed with return code: {process.returncode}")
+                self.error.emit(f"Download failed with return code: {self.process.returncode}")
         except Exception as e:
             self.error.emit(f"Error: {str(e)}")
 
@@ -108,8 +167,15 @@ class ModernYTDLPGUI(QMainWindow):
         super().__init__()
         self.download_thread = None
         self.update_thread = None
+        self.settings = QSettings('YTDLPGui', 'ModernYTDLP')
         self.init_ui()
         self.apply_modern_style()
+        self.load_settings()
+        self.setup_shortcuts()
+        self.check_clipboard_timer = QTimer()
+        self.check_clipboard_timer.timeout.connect(self.check_clipboard)
+        self.check_clipboard_timer.start(1000)  # Check every second
+        self.last_clipboard = ""
 
     def init_ui(self):
         self.setWindowTitle("yt-dlp Downloader")
@@ -162,12 +228,19 @@ class ModernYTDLPGUI(QMainWindow):
         options_layout.addWidget(format_label, 0, 0)
         options_layout.addWidget(self.format_combo, 0, 1)
         
+        # Video format/container selection
+        video_format_label = QLabel("Video Format:")
+        self.video_format_combo = QComboBox()
+        self.video_format_combo.addItems(["Auto (Best)", "MP4", "MKV", "WEBM", "AVI", "FLV"])
+        options_layout.addWidget(video_format_label, 0, 2)
+        options_layout.addWidget(self.video_format_combo, 0, 3)
+        
         # Audio format for audio-only downloads
         audio_label = QLabel("Audio Format:")
         self.audio_format_combo = QComboBox()
         self.audio_format_combo.addItems(["mp3", "wav", "aac", "flac", "m4a"])
-        options_layout.addWidget(audio_label, 0, 2)
-        options_layout.addWidget(self.audio_format_combo, 0, 3)
+        options_layout.addWidget(audio_label, 0, 4)
+        options_layout.addWidget(self.audio_format_combo, 0, 5)
         
         # Checkboxes for additional options
         self.extract_audio_cb = QCheckBox("Extract Audio Only")
@@ -175,12 +248,25 @@ class ModernYTDLPGUI(QMainWindow):
         self.auto_sub_cb = QCheckBox("Auto-generated Subtitles")
         self.thumbnail_cb = QCheckBox("Download Thumbnail")
         self.description_cb = QCheckBox("Save Description")
+        self.playlist_cb = QCheckBox("Download Playlist")
         
         options_layout.addWidget(self.extract_audio_cb, 1, 0)
         options_layout.addWidget(self.subtitle_cb, 1, 1)
         options_layout.addWidget(self.auto_sub_cb, 1, 2)
         options_layout.addWidget(self.thumbnail_cb, 2, 0)
         options_layout.addWidget(self.description_cb, 2, 1)
+        options_layout.addWidget(self.playlist_cb, 2, 2)
+        
+        # Speed limit option
+        speed_label = QLabel("Speed Limit (KB/s):")
+        self.speed_limit_spin = QSpinBox()
+        self.speed_limit_spin.setMinimum(0)
+        self.speed_limit_spin.setMaximum(100000)
+        self.speed_limit_spin.setValue(0)
+        self.speed_limit_spin.setSpecialValueText("No Limit")
+        self.speed_limit_spin.setSuffix(" KB/s")
+        options_layout.addWidget(speed_label, 3, 0)
+        options_layout.addWidget(self.speed_limit_spin, 3, 1)
         
         main_layout.addWidget(options_group)
         
@@ -208,6 +294,12 @@ class ModernYTDLPGUI(QMainWindow):
         self.download_btn.setMinimumHeight(50)
         self.download_btn.clicked.connect(self.start_download)
         
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setObjectName("cancel_btn")
+        self.cancel_btn.setMinimumHeight(50)
+        self.cancel_btn.clicked.connect(self.cancel_download)
+        self.cancel_btn.setVisible(False)
+        
         self.update_btn = QPushButton("Update yt-dlp")
         self.update_btn.setObjectName("update_btn")
         self.update_btn.setMinimumHeight(50)
@@ -219,6 +311,7 @@ class ModernYTDLPGUI(QMainWindow):
         self.clear_btn.clicked.connect(self.clear_log)
         
         button_layout.addWidget(self.download_btn)
+        button_layout.addWidget(self.cancel_btn)
         button_layout.addWidget(self.update_btn)
         button_layout.addWidget(self.clear_btn)
         
@@ -227,6 +320,7 @@ class ModernYTDLPGUI(QMainWindow):
         # Progress Bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
+        self.progress_bar.setTextVisible(True)
         main_layout.addWidget(self.progress_bar)
         
         # Log Output
@@ -334,6 +428,34 @@ class ModernYTDLPGUI(QMainWindow):
                     stop:0 #475569, stop:1 #334155);
             }
             
+            QPushButton#cancel_btn {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #dc2626, stop:1 #b91c1c);
+            }
+            
+            QPushButton#cancel_btn:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #b91c1c, stop:1 #991b1b);
+            }
+            
+            QSpinBox {
+                border: 1.5px solid #d0d7de;
+                border-radius: 8px;
+                padding: 8px 12px;
+                background-color: white;
+                color: #1a1a1a;
+                font-size: 12px;
+            }
+            
+            QSpinBox:focus {
+                border-color: #0969da;
+                outline: 2px solid rgba(9, 105, 218, 0.15);
+            }
+            
+            QSpinBox:hover {
+                border-color: #a8b3c1;
+            }
+            
             QComboBox {
                 border: 1.5px solid #d0d7de;
                 border-radius: 8px;
@@ -431,15 +553,94 @@ class ModernYTDLPGUI(QMainWindow):
             }
         """)
 
+    def setup_shortcuts(self):
+        """Setup keyboard shortcuts."""
+        # Ctrl+V to paste URL
+        paste_shortcut = QShortcut(QKeySequence("Ctrl+V"), self)
+        paste_shortcut.activated.connect(self.paste_from_clipboard)
+        
+        # Enter to start download
+        download_shortcut = QShortcut(QKeySequence("Return"), self.url_input)
+        download_shortcut.activated.connect(self.start_download)
+        
+        # Ctrl+L to clear log
+        clear_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
+        clear_shortcut.activated.connect(self.clear_log)
+
+    def paste_from_clipboard(self):
+        """Paste URL from clipboard."""
+        clipboard = QApplication.clipboard()
+        text = clipboard.text()
+        if text and self.is_valid_url(text):
+            self.url_input.setText(text)
+            self.url_input.setFocus()
+
+    def check_clipboard(self):
+        """Auto-detect URLs from clipboard."""
+        clipboard = QApplication.clipboard()
+        text = clipboard.text()
+        
+        if text != self.last_clipboard and self.is_valid_url(text):
+            self.last_clipboard = text
+            # Only auto-paste if URL field is empty
+            if not self.url_input.text().strip():
+                self.url_input.setText(text)
+
+    def is_valid_url(self, url):
+        """Validate if string is a valid URL."""
+        try:
+            result = urlparse(url)
+            return all([result.scheme, result.netloc]) and result.scheme in ['http', 'https']
+        except:
+            return False
+
+    def load_settings(self):
+        """Load saved settings."""
+        # Load last output directory
+        last_dir = self.settings.value('output_dir', os.getcwd())
+        self.output_path.setText(last_dir)
+        
+        # Load last selected options
+        self.format_combo.setCurrentIndex(self.settings.value('format_index', 0, type=int))
+        self.video_format_combo.setCurrentIndex(self.settings.value('video_format_index', 0, type=int))
+        self.audio_format_combo.setCurrentIndex(self.settings.value('audio_format_index', 0, type=int))
+        self.extract_audio_cb.setChecked(self.settings.value('extract_audio', False, type=bool))
+        self.subtitle_cb.setChecked(self.settings.value('subtitle', False, type=bool))
+        self.auto_sub_cb.setChecked(self.settings.value('auto_sub', False, type=bool))
+        self.thumbnail_cb.setChecked(self.settings.value('thumbnail', False, type=bool))
+        self.description_cb.setChecked(self.settings.value('description', False, type=bool))
+        self.playlist_cb.setChecked(self.settings.value('playlist', False, type=bool))
+        self.speed_limit_spin.setValue(self.settings.value('speed_limit', 0, type=int))
+
+    def save_settings(self):
+        """Save current settings."""
+        self.settings.setValue('output_dir', self.output_path.text())
+        self.settings.setValue('format_index', self.format_combo.currentIndex())
+        self.settings.setValue('video_format_index', self.video_format_combo.currentIndex())
+        self.settings.setValue('audio_format_index', self.audio_format_combo.currentIndex())
+        self.settings.setValue('extract_audio', self.extract_audio_cb.isChecked())
+        self.settings.setValue('subtitle', self.subtitle_cb.isChecked())
+        self.settings.setValue('auto_sub', self.auto_sub_cb.isChecked())
+        self.settings.setValue('thumbnail', self.thumbnail_cb.isChecked())
+        self.settings.setValue('description', self.description_cb.isChecked())
+        self.settings.setValue('playlist', self.playlist_cb.isChecked())
+        self.settings.setValue('speed_limit', self.speed_limit_spin.value())
+
     def browse_output_dir(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory", self.output_path.text())
         if directory:
             self.output_path.setText(directory)
+            self.settings.setValue('output_dir', directory)
 
     def start_download(self):
         url = self.url_input.text().strip()
         if not url:
             self.log_output.append("❌ Please enter a URL")
+            return
+        
+        # Validate URL
+        if not self.is_valid_url(url):
+            self.log_output.append("❌ Invalid URL. Please enter a valid http:// or https:// URL")
             return
         
         if self.download_thread and self.download_thread.isRunning():
@@ -451,14 +652,20 @@ class ModernYTDLPGUI(QMainWindow):
             self.log_output.append("❌ Please wait for yt-dlp update to finish before starting a download")
             return
         
+        # Save settings
+        self.save_settings()
+        
         # Get options
         options = {
             'extract_audio': self.extract_audio_cb.isChecked(),
+            'video_format': self.video_format_combo.currentText(),
             'audio_format': self.audio_format_combo.currentText(),
             'subtitle': self.subtitle_cb.isChecked(),
             'auto_sub': self.auto_sub_cb.isChecked(),
             'thumbnail': self.thumbnail_cb.isChecked(),
-            'description': self.description_cb.isChecked()
+            'description': self.description_cb.isChecked(),
+            'playlist': self.playlist_cb.isChecked(),
+            'speed_limit': self.speed_limit_spin.value()
         }
         
         # Format selection
@@ -483,15 +690,29 @@ class ModernYTDLPGUI(QMainWindow):
         # Start download thread
         self.download_thread = DownloadThread(url, options, output_dir)
         self.download_thread.progress.connect(self.update_log)
+        self.download_thread.progress_percent.connect(self.update_progress)
         self.download_thread.finished.connect(self.download_finished)
         self.download_thread.error.connect(self.download_error)
         
-        self.download_btn.setText("Downloading...")
-        self.download_btn.setEnabled(False)
+        self.download_btn.setVisible(False)
+        self.cancel_btn.setVisible(True)
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminate progress
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         
         self.download_thread.start()
+
+    def cancel_download(self):
+        """Cancel the current download."""
+        if self.download_thread and self.download_thread.isRunning():
+            self.log_output.append("🛑 Cancelling download...")
+            self.download_thread.cancel()
+            self.cancel_btn.setEnabled(False)
+
+    def update_progress(self, percent):
+        """Update progress bar with percentage."""
+        self.progress_bar.setValue(percent)
+        self.progress_bar.setFormat(f"{percent}%")
 
     def update_log(self, message):
         if message:
@@ -509,9 +730,11 @@ class ModernYTDLPGUI(QMainWindow):
         self.reset_download_ui()
 
     def reset_download_ui(self):
-        self.download_btn.setText("Download")
-        self.download_btn.setEnabled(True)
+        self.download_btn.setVisible(True)
+        self.cancel_btn.setVisible(False)
+        self.cancel_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
+        self.progress_bar.setValue(0)
 
     def start_update(self):
         # Prevent update during an active download
@@ -555,6 +778,17 @@ class ModernYTDLPGUI(QMainWindow):
 
     def clear_log(self):
         self.log_output.clear()
+
+    def closeEvent(self, event):
+        """Save settings on close."""
+        self.save_settings()
+        
+        # Cancel any running downloads
+        if self.download_thread and self.download_thread.isRunning():
+            self.download_thread.cancel()
+            self.download_thread.wait()
+        
+        event.accept()
 
 
 def main():
