@@ -4,22 +4,23 @@ A modern, user-friendly graphical interface for yt-dlp with comprehensive downlo
 
 ## Features
 
-- 🎯 **Modern UI**: Clean, intuitive interface with dark theme log output
-- 📺 **Multiple Quality Options**: Choose from various video qualities or audio-only
-- 🎵 **Audio Extraction**: Download audio in multiple formats (mp3, wav, aac, flac, m4a)
-- 📝 **Subtitle Support**: Download subtitles and auto-generated captions
-- 🖼️ **Thumbnail & Metadata**: Save thumbnails and video descriptions
-- 📁 **Custom Output Directory**: Choose where to save your downloads
-- 📊 **Real-time Progress**: Live download progress with percentage tracking
-- 🔄 **Built-in Updater**: Keep yt-dlp up-to-date with one click
-- 🧹 **Clear Log**: Clean log output to keep workspace organized
-- 🎬 **Playlist Support**: Download entire playlists with one click
-- 🛑 **Cancel Downloads**: Stop downloads in progress at any time
-- ⚡ **Speed Limiting**: Throttle download speed to save bandwidth
-- 💾 **Settings Persistence**: Automatically saves your preferences
-- ⌨️ **Keyboard Shortcuts**: Quick actions with keyboard shortcuts
-- 📋 **Clipboard Auto-Detection**: Automatically detects and pastes URLs from clipboard
-- ✅ **URL Validation**: Validates URLs before attempting download
+- **Modern UI**: Clean, intuitive interface with dark theme log output
+- **Multiple Quality Options**: Choose from various video qualities or audio-only
+- **Audio Extraction**: Download audio in multiple formats (mp3, wav, aac, flac, m4a)
+- **Subtitle Support**: Download subtitles and auto-generated captions
+- **Thumbnail & Metadata**: Save thumbnails and video descriptions
+- **Custom Output Directory**: Choose where to save your downloads
+- **Real-time Progress**: Live download progress with percentage tracking
+- **Built-in Updater**: Keep yt-dlp up-to-date with one click
+- **Clear Log**: Clean log output to keep workspace organized
+- **Playlist Support**: Download entire playlists with one click
+- **Cancel Downloads**: Stop downloads in progress at any time
+- **Speed Limiting**: Throttle download speed to save bandwidth
+- **Settings Persistence**: Automatically saves your preferences
+- **Keyboard Shortcuts**: Quick actions with comprehensive keyboard shortcuts
+- **Clipboard Auto-Detection**: Automatically detects and pastes URLs from clipboard
+- **URL Validation**: Validates URLs before attempting download
+- **Full Accessibility**: WCAG AA compliant with complete screen reader and keyboard support
 
 ## Setup
 
@@ -94,6 +95,63 @@ This GUI supports all sites that yt-dlp supports, including:
 - **Ctrl+V**: Paste URL from clipboard (when a valid URL is detected)
 - **Enter**: Start download (when URL field is focused)
 - **Ctrl+L**: Clear log output
+- **Alt+D**: Start download
+- **Alt+C**: Cancel download (when download is in progress)
+- **Alt+U**: Update yt-dlp
+- **Alt+B**: Browse for output directory
+- **Alt+Q**: Select video quality
+- **Alt+F**: Select video format
+- **Alt+A**: Select audio format
+- **Alt+E**: Toggle extract audio only
+- **Alt+S**: Toggle download subtitles
+- **Alt+G**: Toggle auto-generated subtitles
+- **Alt+T**: Toggle download thumbnail
+- **Alt+D**: Toggle save description
+- **Alt+P**: Toggle download playlist
+- **Alt+L**: Set speed limit
+- **Tab**: Navigate between controls in logical order
+
+## Accessibility Features
+
+This application is designed with comprehensive accessibility support to ensure all users can effectively use the software:
+
+### Screen Reader Support
+- **Accessible Names**: All interactive controls have descriptive accessible names for screen readers
+- **Accessible Descriptions**: Detailed descriptions explain the purpose of each control
+- **Status Announcements**: Important status changes (downloads starting, errors, completion) are announced to screen readers
+- **Semantic Labels**: Text labels are properly associated with their controls using buddy relationships
+
+### Keyboard Navigation
+- **Full Keyboard Access**: All functions can be accessed without a mouse
+- **Keyboard Shortcuts**: Comprehensive set of Alt+key mnemonics for all buttons and controls
+- **Logical Tab Order**: Tab navigation follows a natural top-to-bottom, left-to-right flow
+- **Focus Management**: Focus automatically moves to relevant fields on errors for quick correction
+- **Visual Focus Indicators**: Clear, high-contrast focus outlines on all interactive elements
+
+### Visual Accessibility
+- **WCAG AA Compliant Colors**: All text and UI elements meet WCAG 2.1 AA contrast requirements (4.5:1 ratio)
+- **Enhanced Focus Indicators**: Thick, visible outlines with offset for clear focus visibility
+- **No Emoji Dependency**: Status messages use text-based indicators ([INFO], [ERROR], [SUCCESS]) instead of emoji
+- **Readable Fonts**: Clear, legible fonts with appropriate sizing
+- **High DPI Support**: Proper scaling on high-resolution displays
+
+### User Control
+- **Tooltips**: Helpful tooltips on all controls explaining their function
+- **Clear Error Messages**: Descriptive error messages with recovery guidance
+- **Minimum Window Size**: Ensures UI remains usable and doesn't become too small
+- **Settings Persistence**: All preferences saved between sessions
+
+### Error Handling
+- **Focus on Error**: When validation fails, focus automatically returns to the problematic field
+- **Text Selection**: Invalid input is automatically selected for easy correction
+- **Clear Feedback**: Error messages clearly explain what went wrong and how to fix it
+
+This application follows accessibility best practices and aims to be usable by everyone, including:
+- Screen reader users (NVDA, JAWS, Narrator)
+- Keyboard-only users
+- Users with low vision
+- Users with motor impairments
+- Users who need high contrast
 
 ## New Features Details
 
