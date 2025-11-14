@@ -5,13 +5,13 @@ import threading
 import json
 import re
 from urllib.parse import urlparse
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
-                            QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
+                            QWidget, QLabel, QLineEdit, QPushButton, QTextEdit,
                             QCheckBox, QComboBox, QGroupBox, QProgressBar, QFileDialog,
                             QGridLayout, QSpacerItem, QSizePolicy, QFrame, QSpinBox,
-                            QShortcut)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings
-from PyQt5.QtGui import QFont, QPalette, QColor, QKeySequence
+                            QShortcut, QWhatsThis)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings, QEvent
+from PyQt5.QtGui import QFont, QPalette, QColor, QKeySequence, QAccessible
 
 
 class DownloadThread(QThread):
@@ -163,6 +163,9 @@ class UpdateThread(QThread):
             self.error.emit(f"Error: {str(e)}")
 
 class ModernYTDLPGUI(QMainWindow):
+    # Signal for announcing status changes to screen readers
+    status_changed = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.download_thread = None
@@ -172,6 +175,7 @@ class ModernYTDLPGUI(QMainWindow):
         self.apply_modern_style()
         self.load_settings()
         self.setup_shortcuts()
+        self.setup_accessibility()
         self.check_clipboard_timer = QTimer()
         self.check_clipboard_timer.timeout.connect(self.check_clipboard)
         self.check_clipboard_timer.start(1000)  # Check every second
@@ -191,7 +195,7 @@ class ModernYTDLPGUI(QMainWindow):
         main_layout.setContentsMargins(40, 35, 40, 35)
         
         # Title
-        title_label = QLabel("🎬 yt-dlp Downloader")
+        title_label = QLabel("yt-dlp Downloader")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("""
             QLabel {
@@ -202,69 +206,117 @@ class ModernYTDLPGUI(QMainWindow):
                 letter-spacing: -0.5px;
             }
         """)
+        title_label.setAccessibleName("yt-dlp Downloader Application")
+        title_label.setAccessibleDescription("Main application for downloading videos and audio using yt-dlp")
         main_layout.addWidget(title_label)
         
         # URL Input Section
         url_group = QGroupBox("Video URL")
+        url_group.setAccessibleName("Video URL Input Section")
+        url_group.setAccessibleDescription("Enter the URL of the video you want to download")
         url_layout = QVBoxLayout(url_group)
-        
+
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Paste your video URL here...")
         self.url_input.setMinimumHeight(40)
+        self.url_input.setAccessibleName("Video URL")
+        self.url_input.setAccessibleDescription("Enter or paste the URL of the video you want to download. Press Enter to start download.")
+        self.url_input.setToolTip("Enter the URL of the video to download\nShortcut: Ctrl+V to paste\nPress Enter to start download")
         url_layout.addWidget(self.url_input)
-        
+
         main_layout.addWidget(url_group)
         
         # Options Section
         options_group = QGroupBox("Download Options")
+        options_group.setAccessibleName("Download Options Section")
+        options_group.setAccessibleDescription("Configure video quality, format, and additional download options")
         options_layout = QGridLayout(options_group)
-        
+
         # Format selection
-        format_label = QLabel("Video Quality:")
+        format_label = QLabel("&Quality:")
         self.format_combo = QComboBox()
         self.format_combo.addItems([
             "Best Quality", "1080p", "720p", "480p", "360p", "240p", "Audio Only"
         ])
+        self.format_combo.setAccessibleName("Video Quality")
+        self.format_combo.setAccessibleDescription("Select the desired video quality or choose audio only")
+        self.format_combo.setToolTip("Choose video quality (resolution) or select Audio Only to download just the audio track")
+        format_label.setBuddy(self.format_combo)
         options_layout.addWidget(format_label, 0, 0)
         options_layout.addWidget(self.format_combo, 0, 1)
-        
+
         # Video format/container selection
-        video_format_label = QLabel("Video Format:")
+        video_format_label = QLabel("Video &Format:")
         self.video_format_combo = QComboBox()
         self.video_format_combo.addItems(["Auto (Best)", "MP4", "MKV", "WEBM", "AVI", "FLV"])
+        self.video_format_combo.setAccessibleName("Video Container Format")
+        self.video_format_combo.setAccessibleDescription("Select the video file container format")
+        self.video_format_combo.setToolTip("Choose the video container format\nMP4: Best compatibility\nMKV: High quality, supports multiple tracks\nWEBM: Web-optimized format")
+        video_format_label.setBuddy(self.video_format_combo)
         options_layout.addWidget(video_format_label, 0, 2)
         options_layout.addWidget(self.video_format_combo, 0, 3)
-        
+
         # Audio format for audio-only downloads
-        audio_label = QLabel("Audio Format:")
+        audio_label = QLabel("&Audio Format:")
         self.audio_format_combo = QComboBox()
         self.audio_format_combo.addItems(["mp3", "wav", "aac", "flac", "m4a"])
+        self.audio_format_combo.setAccessibleName("Audio Format")
+        self.audio_format_combo.setAccessibleDescription("Select the audio file format for audio-only downloads")
+        self.audio_format_combo.setToolTip("Choose audio format for audio-only downloads\nMP3: Universal compatibility\nFLAC: Lossless quality\nAAC: Good quality, small size")
+        audio_label.setBuddy(self.audio_format_combo)
         options_layout.addWidget(audio_label, 0, 4)
         options_layout.addWidget(self.audio_format_combo, 0, 5)
         
         # Checkboxes for additional options
-        self.extract_audio_cb = QCheckBox("Extract Audio Only")
-        self.subtitle_cb = QCheckBox("Download Subtitles")
-        self.auto_sub_cb = QCheckBox("Auto-generated Subtitles")
-        self.thumbnail_cb = QCheckBox("Download Thumbnail")
-        self.description_cb = QCheckBox("Save Description")
-        self.playlist_cb = QCheckBox("Download Playlist")
-        
+        self.extract_audio_cb = QCheckBox("&Extract Audio Only")
+        self.extract_audio_cb.setAccessibleName("Extract Audio Only")
+        self.extract_audio_cb.setAccessibleDescription("Extract only the audio track from the video")
+        self.extract_audio_cb.setToolTip("Extract only audio from the video (ignores video streams)")
+
+        self.subtitle_cb = QCheckBox("Download &Subtitles")
+        self.subtitle_cb.setAccessibleName("Download Subtitles")
+        self.subtitle_cb.setAccessibleDescription("Download available subtitles with the video")
+        self.subtitle_cb.setToolTip("Download subtitle files if available")
+
+        self.auto_sub_cb = QCheckBox("Auto-&generated Subs")
+        self.auto_sub_cb.setAccessibleName("Auto-generated Subtitles")
+        self.auto_sub_cb.setAccessibleDescription("Include automatically generated subtitles")
+        self.auto_sub_cb.setToolTip("Download auto-generated subtitles (requires Download Subtitles to be checked)")
+
+        self.thumbnail_cb = QCheckBox("Download &Thumbnail")
+        self.thumbnail_cb.setAccessibleName("Download Thumbnail")
+        self.thumbnail_cb.setAccessibleDescription("Download the video thumbnail image")
+        self.thumbnail_cb.setToolTip("Download the video thumbnail as a separate image file")
+
+        self.description_cb = QCheckBox("Save &Description")
+        self.description_cb.setAccessibleName("Save Description")
+        self.description_cb.setAccessibleDescription("Save the video description to a text file")
+        self.description_cb.setToolTip("Save video description and metadata to a text file")
+
+        self.playlist_cb = QCheckBox("Download &Playlist")
+        self.playlist_cb.setAccessibleName("Download Playlist")
+        self.playlist_cb.setAccessibleDescription("Download all videos in the playlist")
+        self.playlist_cb.setToolTip("Download entire playlist (if URL is a playlist)")
+
         options_layout.addWidget(self.extract_audio_cb, 1, 0)
         options_layout.addWidget(self.subtitle_cb, 1, 1)
         options_layout.addWidget(self.auto_sub_cb, 1, 2)
         options_layout.addWidget(self.thumbnail_cb, 2, 0)
         options_layout.addWidget(self.description_cb, 2, 1)
         options_layout.addWidget(self.playlist_cb, 2, 2)
-        
+
         # Speed limit option
-        speed_label = QLabel("Speed Limit (KB/s):")
+        speed_label = QLabel("Speed &Limit:")
         self.speed_limit_spin = QSpinBox()
         self.speed_limit_spin.setMinimum(0)
         self.speed_limit_spin.setMaximum(100000)
         self.speed_limit_spin.setValue(0)
         self.speed_limit_spin.setSpecialValueText("No Limit")
         self.speed_limit_spin.setSuffix(" KB/s")
+        self.speed_limit_spin.setAccessibleName("Download Speed Limit")
+        self.speed_limit_spin.setAccessibleDescription("Set maximum download speed in kilobytes per second, 0 for unlimited")
+        self.speed_limit_spin.setToolTip("Limit download speed (0 = no limit)\nUseful for preventing bandwidth saturation")
+        speed_label.setBuddy(self.speed_limit_spin)
         options_layout.addWidget(speed_label, 3, 0)
         options_layout.addWidget(self.speed_limit_spin, 3, 1)
         
@@ -272,66 +324,94 @@ class ModernYTDLPGUI(QMainWindow):
         
         # Output Directory Section
         output_group = QGroupBox("Output Directory")
+        output_group.setAccessibleName("Output Directory Section")
+        output_group.setAccessibleDescription("Choose where to save downloaded files")
         output_layout = QHBoxLayout(output_group)
-        
+
         self.output_path = QLineEdit()
         self.output_path.setPlaceholderText("Select output directory (default: current directory)")
         self.output_path.setText(os.getcwd())
-        
-        browse_btn = QPushButton("Browse")
+        self.output_path.setAccessibleName("Output Directory Path")
+        self.output_path.setAccessibleDescription("Path where downloaded files will be saved")
+        self.output_path.setToolTip("Directory path where downloaded videos will be saved\nClick Browse to select a different folder")
+
+        browse_btn = QPushButton("&Browse...")
         browse_btn.clicked.connect(self.browse_output_dir)
-        browse_btn.setMaximumWidth(100)
-        
+        browse_btn.setMaximumWidth(120)
+        browse_btn.setAccessibleName("Browse for Output Directory")
+        browse_btn.setAccessibleDescription("Open folder browser to select output directory")
+        browse_btn.setToolTip("Browse and select output folder (Alt+B)")
+
         output_layout.addWidget(self.output_path)
         output_layout.addWidget(browse_btn)
-        
+
         main_layout.addWidget(output_group)
         
         # Control Buttons
         button_layout = QHBoxLayout()
-        
-        self.download_btn = QPushButton("Download")
+
+        self.download_btn = QPushButton("&Download")
         self.download_btn.setMinimumHeight(50)
         self.download_btn.clicked.connect(self.start_download)
-        
-        self.cancel_btn = QPushButton("Cancel")
+        self.download_btn.setAccessibleName("Download")
+        self.download_btn.setAccessibleDescription("Start downloading the video from the entered URL")
+        self.download_btn.setToolTip("Start download (Alt+D or press Enter in URL field)")
+        self.download_btn.setDefault(True)
+
+        self.cancel_btn = QPushButton("&Cancel")
         self.cancel_btn.setObjectName("cancel_btn")
         self.cancel_btn.setMinimumHeight(50)
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.cancel_btn.setVisible(False)
-        
-        self.update_btn = QPushButton("Update yt-dlp")
+        self.cancel_btn.setAccessibleName("Cancel Download")
+        self.cancel_btn.setAccessibleDescription("Stop the current download operation")
+        self.cancel_btn.setToolTip("Cancel the current download (Alt+C)")
+
+        self.update_btn = QPushButton("&Update yt-dlp")
         self.update_btn.setObjectName("update_btn")
         self.update_btn.setMinimumHeight(50)
         self.update_btn.clicked.connect(self.start_update)
+        self.update_btn.setAccessibleName("Update yt-dlp")
+        self.update_btn.setAccessibleDescription("Check for and install yt-dlp updates")
+        self.update_btn.setToolTip("Update yt-dlp to the latest version (Alt+U)")
 
-        self.clear_btn = QPushButton("Clear Log")
+        self.clear_btn = QPushButton("C&lear Log")
         self.clear_btn.setObjectName("clear_btn")
         self.clear_btn.setMinimumHeight(50)
         self.clear_btn.clicked.connect(self.clear_log)
-        
+        self.clear_btn.setAccessibleName("Clear Log")
+        self.clear_btn.setAccessibleDescription("Clear the download log output")
+        self.clear_btn.setToolTip("Clear the log output (Ctrl+L)")
+
         button_layout.addWidget(self.download_btn)
         button_layout.addWidget(self.cancel_btn)
         button_layout.addWidget(self.update_btn)
         button_layout.addWidget(self.clear_btn)
-        
+
         main_layout.addLayout(button_layout)
         
         # Progress Bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAccessibleName("Download Progress")
+        self.progress_bar.setAccessibleDescription("Shows download progress percentage")
         main_layout.addWidget(self.progress_bar)
-        
+
         # Log Output
         log_group = QGroupBox("Download Log")
+        log_group.setAccessibleName("Download Log Section")
+        log_group.setAccessibleDescription("Shows download status messages and progress information")
         log_layout = QVBoxLayout(log_group)
-        
+
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setMinimumHeight(200)
+        self.log_output.setAccessibleName("Download Log Output")
+        self.log_output.setAccessibleDescription("Read-only log showing download progress and status messages")
+        self.log_output.setToolTip("Download progress and status messages appear here")
         log_layout.addWidget(self.log_output)
-        
+
         main_layout.addWidget(log_group)
 
     def apply_modern_style(self):
@@ -372,7 +452,8 @@ class ModernYTDLPGUI(QMainWindow):
             
             QLineEdit:focus {
                 border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
+                outline: 3px solid rgba(9, 105, 218, 0.4);
+                outline-offset: 1px;
             }
             
             QLineEdit:hover {
@@ -389,7 +470,12 @@ class ModernYTDLPGUI(QMainWindow):
                 font-weight: 600;
                 font-size: 13px;
             }
-            
+
+            QPushButton:focus {
+                outline: 3px solid rgba(9, 105, 218, 0.5);
+                outline-offset: 2px;
+            }
+
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #0860ca, stop:1 #044a9e);
@@ -403,9 +489,9 @@ class ModernYTDLPGUI(QMainWindow):
             }
             
             QPushButton:disabled {
-                background: #94a3b8;
-                border-color: #cbd5e1;
-                color: #f1f5f9;
+                background: #64748b;
+                border-color: #94a3b8;
+                color: #f8fafc;
             }
             
             QPushButton#update_btn {
@@ -449,7 +535,8 @@ class ModernYTDLPGUI(QMainWindow):
             
             QSpinBox:focus {
                 border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
+                outline: 3px solid rgba(9, 105, 218, 0.4);
+                outline-offset: 1px;
             }
             
             QSpinBox:hover {
@@ -468,7 +555,8 @@ class ModernYTDLPGUI(QMainWindow):
             
             QComboBox:focus {
                 border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
+                outline: 3px solid rgba(9, 105, 218, 0.4);
+                outline-offset: 1px;
             }
             
             QComboBox:hover {
@@ -514,7 +602,12 @@ class ModernYTDLPGUI(QMainWindow):
             QCheckBox::indicator:hover {
                 border-color: #0969da;
             }
-            
+
+            QCheckBox::indicator:focus {
+                outline: 3px solid rgba(9, 105, 218, 0.4);
+                outline-offset: 1px;
+            }
+
             QCheckBox::indicator:checked {
                 background-color: #0969da;
                 border-color: #0969da;
@@ -558,14 +651,47 @@ class ModernYTDLPGUI(QMainWindow):
         # Ctrl+V to paste URL
         paste_shortcut = QShortcut(QKeySequence("Ctrl+V"), self)
         paste_shortcut.activated.connect(self.paste_from_clipboard)
-        
+
         # Enter to start download
         download_shortcut = QShortcut(QKeySequence("Return"), self.url_input)
         download_shortcut.activated.connect(self.start_download)
-        
+
         # Ctrl+L to clear log
         clear_shortcut = QShortcut(QKeySequence("Ctrl+L"), self)
         clear_shortcut.activated.connect(self.clear_log)
+
+    def setup_accessibility(self):
+        """Setup accessibility features including tab order and window properties."""
+        # Set minimum window size for proper display
+        self.setMinimumSize(800, 650)
+
+        # Enable high DPI scaling
+        self.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+
+        # Set explicit tab order for logical keyboard navigation
+        self.setTabOrder(self.url_input, self.format_combo)
+        self.setTabOrder(self.format_combo, self.video_format_combo)
+        self.setTabOrder(self.video_format_combo, self.audio_format_combo)
+        self.setTabOrder(self.audio_format_combo, self.extract_audio_cb)
+        self.setTabOrder(self.extract_audio_cb, self.subtitle_cb)
+        self.setTabOrder(self.subtitle_cb, self.auto_sub_cb)
+        self.setTabOrder(self.auto_sub_cb, self.thumbnail_cb)
+        self.setTabOrder(self.thumbnail_cb, self.description_cb)
+        self.setTabOrder(self.description_cb, self.playlist_cb)
+        self.setTabOrder(self.playlist_cb, self.speed_limit_spin)
+        self.setTabOrder(self.speed_limit_spin, self.output_path)
+        self.setTabOrder(self.output_path, self.download_btn)
+        self.setTabOrder(self.download_btn, self.update_btn)
+        self.setTabOrder(self.update_btn, self.clear_btn)
+        self.setTabOrder(self.clear_btn, self.log_output)
+
+        # Connect status signal for announcements
+        self.status_changed.connect(self.announce_status)
+
+    def announce_status(self, message):
+        """Announce status changes to screen readers."""
+        # This uses Qt's accessibility system to announce changes
+        QAccessible.updateAccessibility(self, 0, QAccessible.Alert)
 
     def paste_from_clipboard(self):
         """Paste URL from clipboard."""
@@ -635,21 +761,32 @@ class ModernYTDLPGUI(QMainWindow):
     def start_download(self):
         url = self.url_input.text().strip()
         if not url:
-            self.log_output.append("❌ Please enter a URL")
+            msg = "[ERROR] Please enter a URL"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
+            self.url_input.setFocus()
             return
-        
+
         # Validate URL
         if not self.is_valid_url(url):
-            self.log_output.append("❌ Invalid URL. Please enter a valid http:// or https:// URL")
+            msg = "[ERROR] Invalid URL. Please enter a valid http:// or https:// URL"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
+            self.url_input.setFocus()
+            self.url_input.selectAll()
             return
-        
+
         if self.download_thread and self.download_thread.isRunning():
-            self.log_output.append("❌ Download already in progress")
+            msg = "[ERROR] Download already in progress"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
             return
-        
+
         # Block downloads while an update is running
         if self.update_thread and self.update_thread.isRunning():
-            self.log_output.append("❌ Please wait for yt-dlp update to finish before starting a download")
+            msg = "[ERROR] Please wait for yt-dlp update to finish before starting a download"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
             return
         
         # Save settings
@@ -683,9 +820,12 @@ class ModernYTDLPGUI(QMainWindow):
             options['format'] = f"bestvideo[height<={height}]+bestaudio/best[height<={height}]"
         
         output_dir = self.output_path.text().strip() or os.getcwd()
-        
-        self.log_output.append(f"🚀 Starting download from: {url}")
-        self.log_output.append(f"📁 Output directory: {output_dir}")
+
+        start_msg = f"[INFO] Starting download from: {url}"
+        dir_msg = f"[INFO] Output directory: {output_dir}"
+        self.log_output.append(start_msg)
+        self.log_output.append(dir_msg)
+        self.status_changed.emit("Download started")
         
         # Start download thread
         self.download_thread = DownloadThread(url, options, output_dir)
@@ -705,7 +845,9 @@ class ModernYTDLPGUI(QMainWindow):
     def cancel_download(self):
         """Cancel the current download."""
         if self.download_thread and self.download_thread.isRunning():
-            self.log_output.append("🛑 Cancelling download...")
+            msg = "[INFO] Cancelling download..."
+            self.log_output.append(msg)
+            self.status_changed.emit("Cancelling download")
             self.download_thread.cancel()
             self.cancel_btn.setEnabled(False)
 
@@ -722,11 +864,15 @@ class ModernYTDLPGUI(QMainWindow):
             )
 
     def download_finished(self, message):
-        self.log_output.append(f"✅ {message}")
+        msg = f"[SUCCESS] {message}"
+        self.log_output.append(msg)
+        self.status_changed.emit(message)
         self.reset_download_ui()
 
     def download_error(self, message):
-        self.log_output.append(f"❌ {message}")
+        msg = f"[ERROR] {message}"
+        self.log_output.append(msg)
+        self.status_changed.emit(f"Error: {message}")
         self.reset_download_ui()
 
     def reset_download_ui(self):
@@ -739,19 +885,27 @@ class ModernYTDLPGUI(QMainWindow):
     def start_update(self):
         # Prevent update during an active download
         if self.download_thread and self.download_thread.isRunning():
-            self.log_output.append("❌ Please wait for the current download to finish before updating yt-dlp")
+            msg = "[ERROR] Please wait for the current download to finish before updating yt-dlp"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
             return
         # Prevent multiple updates
         if self.update_thread and self.update_thread.isRunning():
-            self.log_output.append("❌ Update already in progress")
+            msg = "[ERROR] Update already in progress"
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
             return
 
         exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yt-dlp.exe')
         if not os.path.exists(exe_path):
-            self.log_output.append("❌ yt-dlp.exe not found next to the application. Place yt-dlp.exe in the same folder and try again.")
+            msg = "[ERROR] yt-dlp.exe not found next to the application. Place yt-dlp.exe in the same folder and try again."
+            self.log_output.append(msg)
+            self.status_changed.emit(msg)
             return
 
-        self.log_output.append("🔄 Checking for yt-dlp updates...")
+        msg = "[INFO] Checking for yt-dlp updates..."
+        self.log_output.append(msg)
+        self.status_changed.emit("Checking for updates")
         self.update_thread = UpdateThread(exe_path)
         self.update_thread.progress.connect(self.update_log)
         self.update_thread.finished.connect(self.update_finished)
@@ -765,14 +919,18 @@ class ModernYTDLPGUI(QMainWindow):
         self.update_thread.start()
 
     def update_finished(self, message):
-        self.log_output.append(f"✅ {message}")
-        self.update_btn.setText("Update yt-dlp")
+        msg = f"[SUCCESS] {message}"
+        self.log_output.append(msg)
+        self.status_changed.emit(message)
+        self.update_btn.setText("&Update yt-dlp")
         self.update_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
 
     def update_error(self, message):
-        self.log_output.append(f"❌ {message}")
-        self.update_btn.setText("Update yt-dlp")
+        msg = f"[ERROR] {message}"
+        self.log_output.append(msg)
+        self.status_changed.emit(f"Update error: {message}")
+        self.update_btn.setText("&Update yt-dlp")
         self.update_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
 
