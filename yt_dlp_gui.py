@@ -4,6 +4,7 @@ import subprocess
 import threading
 import json
 import re
+import platform
 from urllib.parse import urlparse
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, 
@@ -11,7 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
                             QGridLayout, QSpacerItem, QSizePolicy, QFrame, QSpinBox,
                             QShortcut)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QSettings
-from PyQt5.QtGui import QFont, QPalette, QColor, QKeySequence
+from PyQt5.QtGui import QFont, QPalette, QColor, QKeySequence, QIcon
 
 
 class DownloadThread(QThread):
@@ -44,7 +45,13 @@ class DownloadThread(QThread):
     def run(self):
         try:
             # Build yt-dlp command
-            cmd = ['yt-dlp.exe']
+            exe_name = 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
+            # Check if local exists, else assume in path
+            local_exe = os.path.join(os.getcwd(), exe_name)
+            if os.path.exists(local_exe):
+                cmd = [local_exe]
+            else:
+                cmd = [exe_name]
             
             # Add progress template for better parsing
             cmd.extend(['--newline', '--no-colors'])
@@ -179,7 +186,7 @@ class ModernYTDLPGUI(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("yt-dlp Downloader")
-        self.setGeometry(100, 100, 900, 750)
+        self.setGeometry(100, 100, 1000, 800)
         
         # Central widget
         central_widget = QWidget()
@@ -187,369 +194,363 @@ class ModernYTDLPGUI(QMainWindow):
         
         # Main layout
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(25)
-        main_layout.setContentsMargins(40, 35, 40, 35)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(30, 30, 30, 30)
         
-        # Title
-        title_label = QLabel("🎬 yt-dlp Downloader")
+        # Header
+        header_layout = QVBoxLayout()
+        title_label = QLabel("yt-dlp GUI")
+        title_label.setObjectName("title_label")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("""
-            QLabel {
-                font-size: 32px;
-                font-weight: 700;
-                color: #1a1a1a;
-                margin-bottom: 15px;
-                letter-spacing: -0.5px;
-            }
-        """)
-        main_layout.addWidget(title_label)
+        
+        subtitle_label = QLabel("Advanced Video Downloader")
+        subtitle_label.setObjectName("subtitle_label")
+        subtitle_label.setAlignment(Qt.AlignCenter)
+        
+        header_layout.addWidget(title_label)
+        header_layout.addWidget(subtitle_label)
+        main_layout.addLayout(header_layout)
         
         # URL Input Section
-        url_group = QGroupBox("Video URL")
+        url_group = QGroupBox("Target URL")
         url_layout = QVBoxLayout(url_group)
+        url_layout.setContentsMargins(15, 25, 15, 15)
         
+        input_container = QHBoxLayout()
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("Paste your video URL here...")
-        self.url_input.setMinimumHeight(40)
-        url_layout.addWidget(self.url_input)
+        self.url_input.setPlaceholderText("Paste video URL here (e.g., YouTube, Twitch, Twitter)...")
+        self.url_input.setMinimumHeight(45)
+        
+        paste_btn = QPushButton("Paste")
+        paste_btn.setObjectName("secondary_btn")
+        paste_btn.setFixedWidth(80)
+        paste_btn.setMinimumHeight(45)
+        paste_btn.clicked.connect(self.paste_from_clipboard)
+        
+        input_container.addWidget(self.url_input)
+        input_container.addWidget(paste_btn)
+        url_layout.addLayout(input_container)
         
         main_layout.addWidget(url_group)
         
-        # Options Section
-        options_group = QGroupBox("Download Options")
+        # Options Grid
+        options_group = QGroupBox("Configuration")
         options_layout = QGridLayout(options_group)
+        options_layout.setContentsMargins(15, 25, 15, 15)
+        options_layout.setHorizontalSpacing(20)
+        options_layout.setVerticalSpacing(15)
         
-        # Format selection
-        format_label = QLabel("Video Quality:")
+        # Row 1: Formats
+        options_layout.addWidget(QLabel("Quality Profile:"), 0, 0)
         self.format_combo = QComboBox()
         self.format_combo.addItems([
-            "Best Quality", "1080p", "720p", "480p", "360p", "240p", "Audio Only"
+            "Best Quality", "1080p", "720p", "480p", "360p", "Audio Only"
         ])
-        options_layout.addWidget(format_label, 0, 0)
         options_layout.addWidget(self.format_combo, 0, 1)
         
-        # Video format/container selection
-        video_format_label = QLabel("Video Format:")
+        options_layout.addWidget(QLabel("Container:"), 0, 2)
         self.video_format_combo = QComboBox()
-        self.video_format_combo.addItems(["Auto (Best)", "MP4", "MKV", "WEBM", "AVI", "FLV"])
-        options_layout.addWidget(video_format_label, 0, 2)
+        self.video_format_combo.addItems(["Auto (Best)", "MP4", "MKV", "WEBM"])
         options_layout.addWidget(self.video_format_combo, 0, 3)
         
-        # Audio format for audio-only downloads
-        audio_label = QLabel("Audio Format:")
+        options_layout.addWidget(QLabel("Audio Format:"), 0, 4)
         self.audio_format_combo = QComboBox()
-        self.audio_format_combo.addItems(["mp3", "wav", "aac", "flac", "m4a"])
-        options_layout.addWidget(audio_label, 0, 4)
+        self.audio_format_combo.addItems(["mp3", "m4a", "wav", "flac"])
         options_layout.addWidget(self.audio_format_combo, 0, 5)
-        
-        # Checkboxes for additional options
-        self.extract_audio_cb = QCheckBox("Extract Audio Only")
-        self.subtitle_cb = QCheckBox("Download Subtitles")
-        self.auto_sub_cb = QCheckBox("Auto-generated Subtitles")
-        self.thumbnail_cb = QCheckBox("Download Thumbnail")
-        self.description_cb = QCheckBox("Save Description")
-        self.playlist_cb = QCheckBox("Download Playlist")
-        
-        options_layout.addWidget(self.extract_audio_cb, 1, 0)
-        options_layout.addWidget(self.subtitle_cb, 1, 1)
-        options_layout.addWidget(self.auto_sub_cb, 1, 2)
-        options_layout.addWidget(self.thumbnail_cb, 2, 0)
-        options_layout.addWidget(self.description_cb, 2, 1)
-        options_layout.addWidget(self.playlist_cb, 2, 2)
-        
-        # Speed limit option
-        speed_label = QLabel("Speed Limit (KB/s):")
+
+        # Row 2: Speed Limit
+        options_layout.addWidget(QLabel("Speed Limit:"), 1, 0)
         self.speed_limit_spin = QSpinBox()
-        self.speed_limit_spin.setMinimum(0)
-        self.speed_limit_spin.setMaximum(100000)
-        self.speed_limit_spin.setValue(0)
-        self.speed_limit_spin.setSpecialValueText("No Limit")
+        self.speed_limit_spin.setRange(0, 100000)
+        self.speed_limit_spin.setSpecialValueText("Unlimited")
         self.speed_limit_spin.setSuffix(" KB/s")
-        options_layout.addWidget(speed_label, 3, 0)
-        options_layout.addWidget(self.speed_limit_spin, 3, 1)
+        options_layout.addWidget(self.speed_limit_spin, 1, 1)
+
+        # Row 3: Checkboxes
+        checkbox_layout = QGridLayout()
+        self.extract_audio_cb = QCheckBox("Extract Audio")
+        self.subtitle_cb = QCheckBox("Download Subtitles")
+        self.auto_sub_cb = QCheckBox("Auto-Subs")
+        self.thumbnail_cb = QCheckBox("Thumbnail")
+        self.description_cb = QCheckBox("Description")
+        self.playlist_cb = QCheckBox("Process Playlist")
+        
+        checkbox_layout.addWidget(self.extract_audio_cb, 0, 0)
+        checkbox_layout.addWidget(self.subtitle_cb, 0, 1)
+        checkbox_layout.addWidget(self.auto_sub_cb, 0, 2)
+        checkbox_layout.addWidget(self.thumbnail_cb, 1, 0)
+        checkbox_layout.addWidget(self.description_cb, 1, 1)
+        checkbox_layout.addWidget(self.playlist_cb, 1, 2)
+        
+        options_layout.addLayout(checkbox_layout, 2, 0, 1, 6)
         
         main_layout.addWidget(options_group)
         
-        # Output Directory Section
-        output_group = QGroupBox("Output Directory")
+        # Output Directory
+        output_group = QGroupBox("Save Location")
         output_layout = QHBoxLayout(output_group)
+        output_layout.setContentsMargins(15, 25, 15, 15)
         
         self.output_path = QLineEdit()
-        self.output_path.setPlaceholderText("Select output directory (default: current directory)")
         self.output_path.setText(os.getcwd())
+        self.output_path.setReadOnly(True)
         
-        browse_btn = QPushButton("Browse")
+        browse_btn = QPushButton("Browse...")
+        browse_btn.setObjectName("secondary_btn")
         browse_btn.clicked.connect(self.browse_output_dir)
-        browse_btn.setMaximumWidth(100)
         
         output_layout.addWidget(self.output_path)
         output_layout.addWidget(browse_btn)
         
         main_layout.addWidget(output_group)
         
-        # Control Buttons
-        button_layout = QHBoxLayout()
+        # Action Buttons
+        action_layout = QHBoxLayout()
+        action_layout.setSpacing(15)
         
-        self.download_btn = QPushButton("Download")
-        self.download_btn.setMinimumHeight(50)
+        self.download_btn = QPushButton("START DOWNLOAD")
+        self.download_btn.setObjectName("download_btn")
+        self.download_btn.setMinimumHeight(55)
+        self.download_btn.setCursor(Qt.PointingHandCursor)
         self.download_btn.clicked.connect(self.start_download)
         
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton("CANCEL")
         self.cancel_btn.setObjectName("cancel_btn")
-        self.cancel_btn.setMinimumHeight(50)
+        self.cancel_btn.setMinimumHeight(55)
+        self.cancel_btn.setCursor(Qt.PointingHandCursor)
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.cancel_btn.setVisible(False)
         
         self.update_btn = QPushButton("Update yt-dlp")
-        self.update_btn.setObjectName("update_btn")
-        self.update_btn.setMinimumHeight(50)
+        self.update_btn.setObjectName("secondary_btn")
         self.update_btn.clicked.connect(self.start_update)
-
+        
         self.clear_btn = QPushButton("Clear Log")
-        self.clear_btn.setObjectName("clear_btn")
-        self.clear_btn.setMinimumHeight(50)
+        self.clear_btn.setObjectName("secondary_btn")
         self.clear_btn.clicked.connect(self.clear_log)
         
-        button_layout.addWidget(self.download_btn)
-        button_layout.addWidget(self.cancel_btn)
-        button_layout.addWidget(self.update_btn)
-        button_layout.addWidget(self.clear_btn)
+        action_layout.addWidget(self.download_btn, 2)
+        action_layout.addWidget(self.cancel_btn, 2)
+        action_layout.addWidget(self.update_btn, 1)
+        action_layout.addWidget(self.clear_btn, 1)
         
-        main_layout.addLayout(button_layout)
+        main_layout.addLayout(action_layout)
         
         # Progress Bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(True)
+        self.progress_bar.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.progress_bar)
         
-        # Log Output
-        log_group = QGroupBox("Download Log")
-        log_layout = QVBoxLayout(log_group)
-        
+        # Log Area
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(200)
-        log_layout.addWidget(self.log_output)
-        
-        main_layout.addWidget(log_group)
+        self.log_output.setPlaceholderText("Download logs will appear here...")
+        main_layout.addWidget(self.log_output)
 
     def apply_modern_style(self):
+        # Catppuccin Mocha inspired palette
+        # Base: #1e1e2e
+        # Mantle: #181825
+        # Surface0: #313244
+        # Text: #cdd6f4
+        # Blue: #89b4fa
+        # Red: #f38ba8
+        # Green: #a6e3a1
+        
         self.setStyleSheet("""
             QMainWindow {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #f5f7fa, stop:1 #e8edf2);
+                background-color: #1e1e2e;
+            }
+            
+            QWidget {
+                color: #cdd6f4;
+                font-family: 'Segoe UI', 'Roboto', sans-serif;
+                font-size: 13px;
+            }
+            
+            QLabel#title_label {
+                font-size: 28px;
+                font-weight: bold;
+                color: #89b4fa;
+                margin-bottom: 5px;
+            }
+            
+            QLabel#subtitle_label {
+                font-size: 14px;
+                color: #a6adc8;
+                margin-bottom: 15px;
             }
             
             QGroupBox {
-                font-weight: 600;
-                font-size: 13px;
-                color: #1a1a1a;
-                border: 1px solid #d0d7de;
-                border-radius: 12px;
+                background-color: #252535; /* Surface0 slightly lighter */
+                border: 1px solid #313244;
+                border-radius: 10px;
                 margin-top: 12px;
-                padding-top: 18px;
-                background-color: rgba(255, 255, 255, 0.85);
+                font-weight: bold;
             }
             
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 15px;
-                padding: 3px 8px;
-                background-color: white;
-                border-radius: 4px;
+                padding: 0 8px;
+                color: #89b4fa;
+                background-color: #252535; /* Match groupbox bg */
             }
             
             QLineEdit {
-                border: 1.5px solid #d0d7de;
-                border-radius: 8px;
-                padding: 10px 14px;
-                font-size: 13px;
-                background-color: white;
-                color: #1a1a1a;
-                selection-background-color: #0969da;
+                background-color: #181825;
+                border: 1px solid #45475a;
+                border-radius: 6px;
+                padding: 8px 12px;
+                color: #cdd6f4;
+                selection-background-color: #45475a;
             }
             
             QLineEdit:focus {
-                border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
-            }
-            
-            QLineEdit:hover {
-                border-color: #a8b3c1;
-            }
-            
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #0969da, stop:1 #0550ae);
-                color: white;
-                border: 1px solid rgba(0, 0, 0, 0.15);
-                border-radius: 8px;
-                padding: 12px 24px;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #0860ca, stop:1 #044a9e);
-                border-color: rgba(0, 0, 0, 0.2);
-            }
-            
-            QPushButton:pressed {
-                background: #0550ae;
-                padding-top: 13px;
-                padding-bottom: 11px;
-            }
-            
-            QPushButton:disabled {
-                background: #94a3b8;
-                border-color: #cbd5e1;
-                color: #f1f5f9;
-            }
-            
-            QPushButton#update_btn {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #7c3aed, stop:1 #6d28d9);
-            }
-            
-            QPushButton#update_btn:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #6d28d9, stop:1 #5b21b6);
-            }
-            
-            QPushButton#clear_btn {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #64748b, stop:1 #475569);
-            }
-            
-            QPushButton#clear_btn:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #475569, stop:1 #334155);
-            }
-            
-            QPushButton#cancel_btn {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #dc2626, stop:1 #b91c1c);
-            }
-            
-            QPushButton#cancel_btn:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #b91c1c, stop:1 #991b1b);
-            }
-            
-            QSpinBox {
-                border: 1.5px solid #d0d7de;
-                border-radius: 8px;
-                padding: 8px 12px;
-                background-color: white;
-                color: #1a1a1a;
-                font-size: 12px;
-            }
-            
-            QSpinBox:focus {
-                border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
-            }
-            
-            QSpinBox:hover {
-                border-color: #a8b3c1;
+                border: 1px solid #89b4fa;
+                background-color: #1e1e2e;
             }
             
             QComboBox {
-                border: 1.5px solid #d0d7de;
-                border-radius: 8px;
-                padding: 8px 12px;
-                background-color: white;
-                min-width: 110px;
-                color: #1a1a1a;
-                font-size: 12px;
+                background-color: #181825;
+                border: 1px solid #45475a;
+                border-radius: 6px;
+                padding: 6px 10px;
+                min-width: 100px;
             }
             
-            QComboBox:focus {
-                border-color: #0969da;
-                outline: 2px solid rgba(9, 105, 218, 0.15);
-            }
-            
-            QComboBox:hover {
-                border-color: #a8b3c1;
+            QComboBox:on {
+                border: 1px solid #89b4fa;
             }
             
             QComboBox::drop-down {
                 border: none;
-                width: 25px;
-            }
-            
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #6e7681;
-                margin-right: 5px;
+                width: 20px;
             }
             
             QComboBox QAbstractItemView {
-                border: 1px solid #d0d7de;
+                background-color: #181825;
+                border: 1px solid #45475a;
+                selection-background-color: #313244;
+                color: #cdd6f4;
+            }
+            
+            QSpinBox {
+                background-color: #181825;
+                border: 1px solid #45475a;
                 border-radius: 6px;
-                background-color: white;
-                selection-background-color: #0969da;
-                selection-color: white;
-                padding: 4px;
+                padding: 6px;
             }
             
             QCheckBox {
-                font-size: 13px;
-                color: #1a1a1a;
-                spacing: 10px;
+                spacing: 8px;
             }
             
             QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
-                border: 1.5px solid #d0d7de;
+                width: 18px;
+                height: 18px;
+                border: 1px solid #45475a;
                 border-radius: 4px;
-                background-color: white;
-            }
-            
-            QCheckBox::indicator:hover {
-                border-color: #0969da;
+                background-color: #181825;
             }
             
             QCheckBox::indicator:checked {
-                background-color: #0969da;
-                border-color: #0969da;
-                image: none;
+                background-color: #89b4fa;
+                border-color: #89b4fa;
+                image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWUxZTJlIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjAgNiA5IDE3IDQgMTIiPjwvcG9seWxpbmU+PC9zdmc+);
             }
             
-            QTextEdit {
-                border: 1.5px solid #d0d7de;
+            QPushButton {
+                background-color: #313244;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: 600;
+                color: #cdd6f4;
+            }
+            
+            QPushButton:hover {
+                background-color: #45475a;
+            }
+            
+            QPushButton:pressed {
+                background-color: #585b70;
+            }
+            
+            QPushButton#download_btn {
+                background-color: #89b4fa;
+                color: #1e1e2e;
+                font-size: 16px;
+                font-weight: 800;
                 border-radius: 8px;
-                background-color: #0d1117;
-                color: #e6edf3;
-                font-family: 'Consolas', 'Courier New', monospace;
-                font-size: 11px;
-                padding: 8px;
+            }
+            
+            QPushButton#download_btn:hover {
+                background-color: #b4befe;
+            }
+            
+            QPushButton#cancel_btn {
+                background-color: #f38ba8;
+                color: #1e1e2e;
+                font-size: 16px;
+                font-weight: 800;
+                border-radius: 8px;
+            }
+            
+            QPushButton#cancel_btn:hover {
+                background-color: #eba0ac;
+            }
+            
+            QPushButton#secondary_btn {
+                background-color: #313244;
+                border: 1px solid #45475a;
+            }
+            
+            QPushButton#secondary_btn:hover {
+                background-color: #45475a;
+                border-color: #585b70;
             }
             
             QProgressBar {
                 border: none;
+                background-color: #313244;
                 border-radius: 6px;
                 text-align: center;
-                font-weight: 600;
-                background-color: #e5e7eb;
-                height: 8px;
-                font-size: 11px;
+                color: #cdd6f4;
             }
             
             QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #0969da, stop:1 #0550ae);
+                background-color: #a6e3a1;
                 border-radius: 6px;
             }
             
-            QLabel {
-                color: #1a1a1a;
+            QTextEdit {
+                background-color: #11111b; /* Crust */
+                border: 1px solid #313244;
+                border-radius: 8px;
+                font-family: 'JetBrains Mono', 'Consolas', monospace;
                 font-size: 12px;
+                padding: 10px;
+                color: #a6adc8;
+            }
+            
+            QScrollBar:vertical {
+                border: none;
+                background: #1e1e2e;
+                width: 10px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: #45475a;
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
         """)
 
@@ -746,10 +747,17 @@ class ModernYTDLPGUI(QMainWindow):
             self.log_output.append("❌ Update already in progress")
             return
 
-        exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yt-dlp.exe')
+        exe_name = 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
+        exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), exe_name)
+        
         if not os.path.exists(exe_path):
-            self.log_output.append("❌ yt-dlp.exe not found next to the application. Place yt-dlp.exe in the same folder and try again.")
-            return
+            # Check if it's in the path
+            import shutil
+            if shutil.which(exe_name):
+                exe_path = exe_name
+            else:
+                self.log_output.append(f"❌ {exe_name} not found. Please install it or place it in the app directory.")
+                return
 
         self.log_output.append("🔄 Checking for yt-dlp updates...")
         self.update_thread = UpdateThread(exe_path)
