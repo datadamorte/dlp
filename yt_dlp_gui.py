@@ -5,6 +5,8 @@ import threading
 import json
 import re
 import platform
+import urllib.request
+import stat
 from urllib.parse import urlparse
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, 
@@ -183,6 +185,61 @@ class ModernYTDLPGUI(QMainWindow):
         self.check_clipboard_timer.timeout.connect(self.check_clipboard)
         self.check_clipboard_timer.start(1000)  # Check every second
         self.last_clipboard = ""
+        
+        # Check for yt-dlp and install if missing
+        QTimer.singleShot(100, self.check_and_install_ytdlp)
+
+    def check_and_install_ytdlp(self):
+        """Check if yt-dlp is present, if not download it."""
+        exe_name = 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
+        
+        # Check local directory
+        local_path = os.path.join(os.getcwd(), exe_name)
+        if os.path.exists(local_path):
+            return
+
+        # Check PATH
+        import shutil
+        if shutil.which(exe_name):
+            return
+
+        # Not found, download it
+        self.log_output.append(f"⚠️ {exe_name} not found. Downloading automatically...")
+        self.download_btn.setEnabled(False)
+        self.update_btn.setEnabled(False)
+        
+        try:
+            system = platform.system()
+            if system == 'Windows':
+                url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+            elif system == 'Darwin': # macOS
+                url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+            else: # Linux
+                url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+            
+            # Download with progress
+            def progress_hook(count, block_size, total_size):
+                percent = int(count * block_size * 100 / total_size)
+                self.progress_bar.setVisible(True)
+                self.progress_bar.setValue(percent)
+                self.progress_bar.setFormat(f"Downloading yt-dlp: {percent}%")
+                QApplication.processEvents()
+
+            urllib.request.urlretrieve(url, local_path, progress_hook)
+            
+            # Make executable on Unix
+            if system != 'Windows':
+                st = os.stat(local_path)
+                os.chmod(local_path, st.st_mode | stat.S_IEXEC)
+            
+            self.log_output.append(f"✅ {exe_name} downloaded and installed successfully!")
+            self.progress_bar.setVisible(False)
+            self.download_btn.setEnabled(True)
+            self.update_btn.setEnabled(True)
+            
+        except Exception as e:
+            self.log_output.append(f"❌ Failed to download yt-dlp: {str(e)}")
+            self.log_output.append("Please download it manually from https://github.com/yt-dlp/yt-dlp/releases")
 
     def init_ui(self):
         self.setWindowTitle("yt-dlp Downloader")

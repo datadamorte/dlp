@@ -21,9 +21,7 @@ A modern, user-friendly graphical interface for [yt-dlp](https://github.com/yt-d
 
 - Python 3.7+
 - `PyQt5` (installed via requirements.txt)
-- `yt-dlp` executable:
-    - **Windows**: `yt-dlp.exe` (placed in the app directory or in system PATH)
-    - **macOS/Linux**: `yt-dlp` (installed via brew/apt or placed in the app directory)
+- `yt-dlp` executable (automatically downloaded by the app if missing)
 
 ## Setup
 
@@ -47,21 +45,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Install yt-dlp
+### 3. Run the Application
 
-**Windows:**
-Download `yt-dlp.exe` from [releases](https://github.com/yt-dlp/yt-dlp/releases) and place it in this folder.
+The application will automatically check for `yt-dlp` and download it if necessary.
 
-**macOS:**
 ```bash
-brew install yt-dlp
-# OR download the binary and place it in this folder
-```
-
-**Linux:**
-```bash
-sudo apt install yt-dlp
-# OR download the binary and place it in this folder
+python yt_dlp_gui.py
 ```
 
 ## Usage
