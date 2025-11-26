@@ -152,7 +152,39 @@ class UpdateThread(QThread):
 
     def run(self):
         try:
+            # First try native yt-dlp update
             cmd = [self.exe_path, '-U']
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
+            )
+            output_lines = []
+            for line in process.stdout:
+                output_lines.append(line.strip())
+                self.progress.emit(line.strip())
+            process.wait()
+            
+            if process.returncode == 0:
+                self.finished.emit("yt-dlp update completed.")
+                return
+            
+            # Check if it's a pip installation (return code 100)
+            output_text = '\n'.join(output_lines)
+            if process.returncode == 100 or 'installed yt-dlp with pip' in output_text:
+                self.progress.emit("Detected pip installation, updating via pip...")
+                self._update_via_pip()
+            else:
+                self.error.emit(f"Update failed with return code: {process.returncode}")
+        except Exception as e:
+            self.error.emit(f"Error: {str(e)}")
+
+    def _update_via_pip(self):
+        try:
+            cmd = [sys.executable, '-m', 'pip', 'install', '-U', 'yt-dlp']
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -165,11 +197,11 @@ class UpdateThread(QThread):
                 self.progress.emit(line.strip())
             process.wait()
             if process.returncode == 0:
-                self.finished.emit("yt-dlp update completed.")
+                self.finished.emit("yt-dlp updated via pip.")
             else:
-                self.error.emit(f"Update failed with return code: {process.returncode}")
+                self.error.emit(f"pip update failed with return code: {process.returncode}")
         except Exception as e:
-            self.error.emit(f"Error: {str(e)}")
+            self.error.emit(f"pip update error: {str(e)}")
 
 class ModernYTDLPGUI(QMainWindow):
     def __init__(self):
