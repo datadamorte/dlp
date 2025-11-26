@@ -96,6 +96,11 @@ class DownloadThread(QThread):
             if self.options.get('speed_limit') and self.options['speed_limit'] > 0:
                 cmd.extend(['-r', f"{self.options['speed_limit']}K"])
             
+            # Cookies from browser
+            cookies_browser = self.options.get('cookies_browser')
+            if cookies_browser and cookies_browser != 'None':
+                cmd.extend(['--cookies-from-browser', cookies_browser.lower()])
+            
             # Output directory
             if self.output_path:
                 cmd.extend(['-o', f'{self.output_path}/%(title)s.%(ext)s'])
@@ -347,13 +352,19 @@ class ModernYTDLPGUI(QMainWindow):
         self.audio_format_combo.addItems(["mp3", "m4a", "wav", "flac"])
         options_layout.addWidget(self.audio_format_combo, 0, 5)
 
-        # Row 2: Speed Limit
+        # Row 2: Speed Limit and Cookies
         options_layout.addWidget(QLabel("Speed Limit:"), 1, 0)
         self.speed_limit_spin = QSpinBox()
         self.speed_limit_spin.setRange(0, 100000)
         self.speed_limit_spin.setSpecialValueText("Unlimited")
         self.speed_limit_spin.setSuffix(" KB/s")
         options_layout.addWidget(self.speed_limit_spin, 1, 1)
+        
+        options_layout.addWidget(QLabel("Use Cookies:"), 1, 2)
+        self.cookies_combo = QComboBox()
+        self.cookies_combo.addItems(["None", "Chrome", "Firefox", "Safari", "Edge", "Brave", "Opera"])
+        self.cookies_combo.setToolTip("Use browser cookies to bypass 403 errors")
+        options_layout.addWidget(self.cookies_combo, 1, 3)
 
         # Row 3: Checkboxes
         checkbox_layout = QGridLayout()
@@ -701,6 +712,7 @@ class ModernYTDLPGUI(QMainWindow):
         self.description_cb.setChecked(self.settings.value('description', False, type=bool))
         self.playlist_cb.setChecked(self.settings.value('playlist', False, type=bool))
         self.speed_limit_spin.setValue(self.settings.value('speed_limit', 0, type=int))
+        self.cookies_combo.setCurrentIndex(self.settings.value('cookies_index', 0, type=int))
 
     def save_settings(self):
         """Save current settings."""
@@ -715,6 +727,7 @@ class ModernYTDLPGUI(QMainWindow):
         self.settings.setValue('description', self.description_cb.isChecked())
         self.settings.setValue('playlist', self.playlist_cb.isChecked())
         self.settings.setValue('speed_limit', self.speed_limit_spin.value())
+        self.settings.setValue('cookies_index', self.cookies_combo.currentIndex())
 
     def browse_output_dir(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Output Directory", self.output_path.text())
@@ -755,7 +768,8 @@ class ModernYTDLPGUI(QMainWindow):
             'thumbnail': self.thumbnail_cb.isChecked(),
             'description': self.description_cb.isChecked(),
             'playlist': self.playlist_cb.isChecked(),
-            'speed_limit': self.speed_limit_spin.value()
+            'speed_limit': self.speed_limit_spin.value(),
+            'cookies_browser': self.cookies_combo.currentText()
         }
         
         # Format selection

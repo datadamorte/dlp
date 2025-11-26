@@ -19,9 +19,10 @@ A modern, user-friendly graphical interface for [yt-dlp](https://github.com/yt-d
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.10+ (3.9 is deprecated by yt-dlp)
 - `PyQt5` (installed via requirements.txt)
-- `yt-dlp` executable (automatically downloaded by the app if missing)
+- `yt-dlp` (installed via pip or auto-downloaded)
+- **ffmpeg** (recommended for merging video+audio formats)
 
 ## Setup
 
@@ -70,6 +71,7 @@ python yt_dlp_gui.py
 -   **Container**: Choose output video container (MP4, MKV, WEBM). "Auto (Best)" is recommended.
 -   **Audio Format**: Choose audio format when extracting audio only.
 -   **Speed Limit**: Set maximum download speed in KB/s (0 = unlimited).
+-   **Use Cookies**: Use browser cookies to bypass 403 errors (see Troubleshooting).
 -   **Checkboxes**:
     -   **Extract Audio**: Download only the audio track.
     -   **Download Subtitles**: Save available subtitles.
@@ -83,3 +85,35 @@ python yt_dlp_gui.py
 -   **Ctrl+V**: Paste URL from clipboard.
 -   **Enter**: Start download (when URL field is focused).
 -   **Ctrl+L**: Clear log output.
+
+## Troubleshooting
+
+### HTTP Error 403: Forbidden
+
+YouTube may block requests that appear to come from bots. To fix this:
+
+1. Set **Use Cookies** to your browser (e.g., Safari, Chrome, Firefox)
+2. Make sure you're logged into YouTube in that browser
+3. The app will use your browser's authentication to bypass restrictions
+
+### Formats won't merge
+
+If you see "ffmpeg is not installed" warning, install ffmpeg:
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Windows:**
+Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH.
+
+**Linux:**
+```bash
+sudo apt install ffmpeg  # Debian/Ubuntu
+sudo dnf install ffmpeg  # Fedora
+```
+
+### Python version warning
+
+yt-dlp has deprecated Python 3.9. For best compatibility, use Python 3.10 or newer.
