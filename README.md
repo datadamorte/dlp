@@ -12,7 +12,7 @@ A modern, user-friendly graphical interface for [yt-dlp](https://github.com/yt-d
 - 🖼️ **Thumbnail & Metadata**: Save thumbnails and video descriptions.
 - 📁 **Custom Output Directory**: Choose where to save your downloads.
 - 📊 **Real-time Progress**: Live download progress with percentage tracking.
-- 🔄 **Built-in Updater**: Keep `yt-dlp` up-to-date with one click.
+- 🔄 **Built-in Updater**: Auto-updates `yt-dlp` on launch, plus a one-click manual update button.
 - 🎬 **Playlist Support**: Download entire playlists with one click.
 - ⚡ **Speed Limiting**: Throttle download speed to save bandwidth.
 - 📋 **Clipboard Auto-Detection**: Automatically detects and pastes URLs from clipboard.

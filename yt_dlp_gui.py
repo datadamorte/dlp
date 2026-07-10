@@ -213,6 +213,7 @@ class ModernYTDLPGUI(QMainWindow):
         super().__init__()
         self.download_thread = None
         self.update_thread = None
+        self._auto_updating = False
         self.settings = QSettings('YTDLPGui', 'ModernYTDLP')
         self.init_ui()
         self.apply_modern_style()
@@ -223,24 +224,41 @@ class ModernYTDLPGUI(QMainWindow):
         self.check_clipboard_timer.start(1000)  # Check every second
         self.last_clipboard = ""
         
-        # Check for yt-dlp and install if missing
+        # Install yt-dlp if missing, otherwise auto-update on launch
         QTimer.singleShot(100, self.check_and_install_ytdlp)
 
-    def check_and_install_ytdlp(self):
-        """Check if yt-dlp is present, if not download it."""
-        exe_name = 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
-        
-        # Check local directory
-        local_path = os.path.join(os.getcwd(), exe_name)
-        if os.path.exists(local_path):
-            return
+    def _app_dir(self):
+        """Directory containing this script (preferred location for yt-dlp binary)."""
+        return os.path.dirname(os.path.abspath(__file__))
 
-        # Check PATH
+    def _ytdlp_exe_name(self):
+        return 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
+
+    def resolve_ytdlp_path(self):
+        """Find yt-dlp next to the app, in the cwd, or on PATH. Returns path or None."""
         import shutil
-        if shutil.which(exe_name):
+        exe_name = self._ytdlp_exe_name()
+        candidates = [
+            os.path.join(self._app_dir(), exe_name),
+            os.path.join(os.getcwd(), exe_name),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return shutil.which(exe_name)
+
+    def check_and_install_ytdlp(self):
+        """Ensure yt-dlp is present; if it is, auto-update it on GUI open."""
+        exe_name = self._ytdlp_exe_name()
+        exe_path = self.resolve_ytdlp_path()
+
+        if exe_path:
+            # Already installed — check for updates in the background
+            self.start_update(auto=True)
             return
 
-        # Not found, download it
+        # Not found, download latest binary next to the app
+        local_path = os.path.join(self._app_dir(), exe_name)
         self.log_output.append(f"⚠️ {exe_name} not found. Downloading automatically...")
         self.download_btn.setEnabled(False)
         self.update_btn.setEnabled(False)
@@ -249,15 +267,19 @@ class ModernYTDLPGUI(QMainWindow):
             system = platform.system()
             if system == 'Windows':
                 url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-            elif system == 'Darwin': # macOS
+            elif system == 'Darwin':  # macOS
                 url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
-            else: # Linux
+            else:  # Linux
                 url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
             
             # Download with progress
             def progress_hook(count, block_size, total_size):
-                percent = int(count * block_size * 100 / total_size)
+                if total_size > 0:
+                    percent = min(100, int(count * block_size * 100 / total_size))
+                else:
+                    percent = 0
                 self.progress_bar.setVisible(True)
+                self.progress_bar.setRange(0, 100)
                 self.progress_bar.setValue(percent)
                 self.progress_bar.setFormat(f"Downloading yt-dlp: {percent}%")
                 QApplication.processEvents()
@@ -277,6 +299,9 @@ class ModernYTDLPGUI(QMainWindow):
         except Exception as e:
             self.log_output.append(f"❌ Failed to download yt-dlp: {str(e)}")
             self.log_output.append("Please download it manually from https://github.com/yt-dlp/yt-dlp/releases")
+            self.progress_bar.setVisible(False)
+            self.download_btn.setEnabled(True)
+            self.update_btn.setEnabled(True)
 
     def init_ui(self):
         self.setWindowTitle("yt-dlp Downloader")
@@ -840,29 +865,34 @@ class ModernYTDLPGUI(QMainWindow):
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
 
-    def start_update(self):
+    def start_update(self, auto=False):
+        """Update yt-dlp. If auto=True, runs quietly on GUI open (soft-fail on errors)."""
         # Prevent update during an active download
         if self.download_thread and self.download_thread.isRunning():
-            self.log_output.append("❌ Please wait for the current download to finish before updating yt-dlp")
+            if not auto:
+                self.log_output.append("❌ Please wait for the current download to finish before updating yt-dlp")
             return
         # Prevent multiple updates
         if self.update_thread and self.update_thread.isRunning():
-            self.log_output.append("❌ Update already in progress")
+            if not auto:
+                self.log_output.append("❌ Update already in progress")
             return
 
-        exe_name = 'yt-dlp.exe' if platform.system() == 'Windows' else 'yt-dlp'
-        exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), exe_name)
-        
-        if not os.path.exists(exe_path):
-            # Check if it's in the path
-            import shutil
-            if shutil.which(exe_name):
-                exe_path = exe_name
-            else:
-                self.log_output.append(f"❌ {exe_name} not found. Please install it or place it in the app directory.")
-                return
+        exe_path = self.resolve_ytdlp_path()
+        if not exe_path:
+            if not auto:
+                self.log_output.append(
+                    f"❌ {self._ytdlp_exe_name()} not found. "
+                    "Please install it or place it in the app directory."
+                )
+            return
 
-        self.log_output.append("🔄 Checking for yt-dlp updates...")
+        self._auto_updating = auto
+        if auto:
+            self.log_output.append("🔄 Checking for yt-dlp updates on startup...")
+        else:
+            self.log_output.append("🔄 Checking for yt-dlp updates...")
+
         self.update_thread = UpdateThread(exe_path)
         self.update_thread.progress.connect(self.update_log)
         self.update_thread.finished.connect(self.update_finished)
@@ -870,21 +900,32 @@ class ModernYTDLPGUI(QMainWindow):
 
         self.update_btn.setText("Updating...")
         self.update_btn.setEnabled(False)
+        self.download_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
 
         self.update_thread.start()
 
     def update_finished(self, message):
-        self.log_output.append(f"✅ {message}")
+        prefix = "Startup update: " if self._auto_updating else ""
+        self.log_output.append(f"✅ {prefix}{message}")
+        self._auto_updating = False
         self.update_btn.setText("Update yt-dlp")
         self.update_btn.setEnabled(True)
+        self.download_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
 
     def update_error(self, message):
-        self.log_output.append(f"❌ {message}")
+        if self._auto_updating:
+            # Soft-fail on launch so a network blip does not block the app
+            self.log_output.append(f"⚠️ Startup update skipped: {message}")
+            self.log_output.append("You can still download videos, or click \"Update yt-dlp\" later.")
+        else:
+            self.log_output.append(f"❌ {message}")
+        self._auto_updating = False
         self.update_btn.setText("Update yt-dlp")
         self.update_btn.setEnabled(True)
+        self.download_btn.setEnabled(True)
         self.progress_bar.setVisible(False)
 
     def clear_log(self):
