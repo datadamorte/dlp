@@ -132,6 +132,23 @@ def make_check_icon_path():
     return path.replace("\\", "/")
 
 
+def make_chevron_icon_path():
+    path = os.path.join(tempfile.gettempdir(), "ytdlp-gui-chevron.png")
+    pixmap = QPixmap(10, 10)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    pen = QPen(QColor("#8e8e96"))
+    pen.setWidth(2)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    painter.setPen(pen)
+    painter.drawPolyline(QPolygon([QPoint(2, 3), QPoint(5, 7), QPoint(8, 3)]))
+    painter.end()
+    pixmap.save(path, "PNG")
+    return path.replace("\\", "/")
+
+
 def apply_dark_palette(app):
     palette = QPalette()
     palette.setColor(QPalette.Window, QColor("#101012"))
@@ -154,16 +171,21 @@ def apply_dark_palette(app):
     app.setPalette(palette)
 
 
-def app_stylesheet(check_path):
+def app_stylesheet(check_path, chevron_path):
     return f"""
-        QMainWindow, QWidget {{
-            background-color: #101012;
+        QMainWindow {{
+            background-color: #121214;
+        }}
+        QWidget {{
             color: #f0f0f2;
             font-size: 13px;
         }}
+        QWidget#root {{
+            background-color: #121214;
+        }}
 
         QMenuBar {{
-            background-color: #101012;
+            background-color: #121214;
             color: #c8c8ce;
             border-bottom: 1px solid #2a2a2e;
             padding: 2px 10px;
@@ -197,7 +219,7 @@ def app_stylesheet(check_path):
         }}
 
         QStatusBar {{
-            background-color: #101012;
+            background-color: #121214;
             color: #8e8e96;
             border-top: 1px solid #2a2a2e;
         }}
@@ -207,27 +229,25 @@ def app_stylesheet(check_path):
             padding-left: 4px;
         }}
 
-        QLabel#wordmark {{
-            font-size: 15px;
-            font-weight: 600;
-            color: #f0f0f2;
-            letter-spacing: 0.2px;
-        }}
-        QLabel#versionLabel {{
-            font-size: 11px;
-            color: #63636b;
-            padding-left: 6px;
-            padding-top: 2px;
-        }}
         QLabel#sectionTitle {{
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
-            color: #8e8e96;
-            padding-bottom: 2px;
+            color: #d0d0d6;
+            padding-bottom: 4px;
         }}
         QLabel#fieldLabel {{
             font-size: 12px;
             color: #8e8e96;
+        }}
+        QLabel#rowLabel {{
+            font-size: 12px;
+            color: #8e8e96;
+            min-width: 58px;
+        }}
+        QLabel#versionLabel {{
+            font-size: 11px;
+            color: #63636b;
+            padding-right: 8px;
         }}
 
         QFrame#hairline {{
@@ -235,6 +255,11 @@ def app_stylesheet(check_path):
             border: none;
             max-height: 1px;
             min-height: 1px;
+        }}
+        QFrame#panel {{
+            background-color: #1a1a1d;
+            border: 1px solid #2a2a2e;
+            border-radius: 8px;
         }}
 
         QLineEdit {{
@@ -276,6 +301,12 @@ def app_stylesheet(check_path):
         QComboBox::drop-down {{
             border: none;
             width: 22px;
+        }}
+        QComboBox::down-arrow {{
+            image: url({chevron_path});
+            width: 10px;
+            height: 10px;
+            margin-right: 6px;
         }}
         QComboBox QAbstractItemView {{
             background-color: #161618;
@@ -399,16 +430,15 @@ def app_stylesheet(check_path):
         QProgressBar {{
             border: none;
             background-color: #1c1c1f;
-            border-radius: 3px;
+            border-radius: 4px;
             text-align: center;
-            color: #c8c8ce;
-            font-size: 11px;
-            min-height: 16px;
-            max-height: 16px;
+            color: transparent;
+            min-height: 6px;
+            max-height: 6px;
         }}
         QProgressBar::chunk {{
-            background-color: #d0d0d4;
-            border-radius: 3px;
+            background-color: #ececee;
+            border-radius: 4px;
         }}
 
         QTextEdit#logView {{
@@ -679,12 +709,22 @@ class YTDLPWindow(QMainWindow):
         label.setObjectName("sectionTitle")
         return label
 
-    def _hairline(self):
-        line = QFrame()
-        line.setObjectName("hairline")
-        line.setFrameShape(QFrame.NoFrame)
-        line.setFixedHeight(1)
-        return line
+    def _row_label(self, text, buddy=None):
+        label = QLabel(text)
+        label.setObjectName("rowLabel")
+        label.setFixedWidth(58)
+        if buddy is not None:
+            label.setBuddy(buddy)
+        return label
+
+    def _wrap_panel(self, inner_layout):
+        frame = QFrame()
+        frame.setObjectName("panel")
+        wrap = QVBoxLayout(frame)
+        wrap.setContentsMargins(18, 16, 18, 16)
+        wrap.setSpacing(12)
+        wrap.addLayout(inner_layout)
+        return frame
 
     def log(self, message, level="info"):
         if not message:
@@ -761,8 +801,8 @@ class YTDLPWindow(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle(WINDOW_TITLE)
-        self.setMinimumSize(860, 600)
-        self.resize(980, 680)
+        self.setMinimumSize(880, 620)
+        self.resize(980, 700)
         self.setAcceptDrops(True)
         self.setWindowIcon(make_app_icon())
 
@@ -773,20 +813,17 @@ class YTDLPWindow(QMainWindow):
         self.setCentralWidget(root)
 
         layout = QVBoxLayout(root)
-        layout.setContentsMargins(22, 16, 22, 10)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 16, 24, 10)
+        layout.setSpacing(16)
 
-        layout.addLayout(self._build_header())
         layout.addLayout(self._build_url_row())
         layout.addLayout(self._build_save_row())
-        layout.addWidget(self._hairline())
         layout.addLayout(self._build_options_row())
-        layout.addWidget(self._hairline())
         layout.addLayout(self._build_activity_header())
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setAlignment(Qt.AlignCenter)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(6)
         layout.addWidget(self.progress_bar)
 
         self.log_output = QTextEdit()
@@ -800,8 +837,11 @@ class YTDLPWindow(QMainWindow):
         layout.addWidget(self.log_output, 1)
 
         self.status_label = QLabel("Ready")
+        version_label = QLabel(f"v{APP_VERSION}")
+        version_label.setObjectName("versionLabel")
         self.statusBar().setSizeGripEnabled(True)
         self.statusBar().addWidget(self.status_label, 1)
+        self.statusBar().addPermanentWidget(version_label)
 
     def _build_menubar(self):
         file_menu = self.menuBar().addMenu("&File")
@@ -841,24 +881,6 @@ class YTDLPWindow(QMainWindow):
         about_act.triggered.connect(self.show_about)
         help_menu.addAction(about_act)
 
-    def _build_header(self):
-        row = QHBoxLayout()
-        row.setSpacing(0)
-        mark = QLabel("yt-dlp")
-        mark.setObjectName("wordmark")
-        version = QLabel(f"v{APP_VERSION}")
-        version.setObjectName("versionLabel")
-        row.addWidget(mark)
-        row.addWidget(version)
-        row.addStretch()
-        self.update_btn = QPushButton("Check for updates")
-        self.update_btn.setObjectName("linkBtn")
-        self.update_btn.setCursor(Qt.PointingHandCursor)
-        self.update_btn.setToolTip("Update the local yt-dlp binary")
-        self.update_btn.clicked.connect(self.start_update)
-        row.addWidget(self.update_btn)
-        return row
-
     def _build_url_row(self):
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -895,6 +917,7 @@ class YTDLPWindow(QMainWindow):
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.cancel_btn.setVisible(False)
 
+        row.addWidget(self._row_label("URL", self.url_input))
         row.addWidget(self.url_input, 1)
         row.addWidget(paste_btn)
         row.addWidget(self.download_btn)
@@ -904,26 +927,26 @@ class YTDLPWindow(QMainWindow):
     def _build_save_row(self):
         row = QHBoxLayout()
         row.setSpacing(8)
-        label = self._field_label("Save to")
-        label.setFixedWidth(52)
         self.output_path = QLineEdit()
         self.output_path.setText(os.getcwd())
         self.output_path.setReadOnly(True)
         self.output_path.setToolTip("Folder where files are saved")
-        self.output_path.setMinimumHeight(32)
+        self.output_path.setMinimumHeight(36)
 
-        browse_btn = QPushButton("Choose…")
+        browse_btn = QPushButton("Choose")
         browse_btn.setObjectName("secondary_btn")
-        browse_btn.setMinimumHeight(32)
+        browse_btn.setMinimumHeight(36)
+        browse_btn.setFixedWidth(76)
         browse_btn.clicked.connect(self.browse_output_dir)
 
         self.open_folder_btn = QPushButton("Reveal")
         self.open_folder_btn.setObjectName("secondary_btn")
-        self.open_folder_btn.setMinimumHeight(32)
+        self.open_folder_btn.setMinimumHeight(36)
+        self.open_folder_btn.setMinimumWidth(112)
         self.open_folder_btn.setToolTip("Open the save location in your file manager")
         self.open_folder_btn.clicked.connect(self.open_output_dir)
 
-        row.addWidget(label)
+        row.addWidget(self._row_label("Save to", self.output_path))
         row.addWidget(self.output_path, 1)
         row.addWidget(browse_btn)
         row.addWidget(self.open_folder_btn)
@@ -931,9 +954,9 @@ class YTDLPWindow(QMainWindow):
 
     def _build_options_row(self):
         row = QHBoxLayout()
-        row.setSpacing(32)
-        row.addLayout(self._build_format_column(), 1)
-        row.addLayout(self._build_extras_column(), 1)
+        row.setSpacing(12)
+        row.addWidget(self._wrap_panel(self._build_format_column()), 1)
+        row.addWidget(self._wrap_panel(self._build_extras_column()), 1)
         return row
 
     def _build_format_column(self):
@@ -967,6 +990,19 @@ class YTDLPWindow(QMainWindow):
         self.cookies_combo.addItems(["None", "Chrome", "Firefox", "Safari", "Edge", "Brave", "Opera"])
         self.cookies_combo.setToolTip("Use browser cookies to bypass 403 errors and age-gates")
 
+        for widget in (
+            self.format_combo,
+            self.video_format_combo,
+            self.audio_format_combo,
+            self.speed_limit_spin,
+            self.cookies_combo,
+        ):
+            widget.setMinimumHeight(30)
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        self.recode_cb = QCheckBox("Re-encode if remux fails")
+        self.recode_cb.setToolTip("Slower. Only needed if remuxing into the chosen container fails.")
+
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         form.setHorizontalSpacing(12)
@@ -975,14 +1011,11 @@ class YTDLPWindow(QMainWindow):
         form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         form.addRow(self._field_label("Quality", self.format_combo), self.format_combo)
         form.addRow(self._field_label("Container", self.video_format_combo), self.video_format_combo)
+        form.addRow("", self.recode_cb)
         form.addRow(self._field_label("Audio", self.audio_format_combo), self.audio_format_combo)
         form.addRow(self._field_label("Rate limit", self.speed_limit_spin), self.speed_limit_spin)
         form.addRow(self._field_label("Cookies", self.cookies_combo), self.cookies_combo)
         col.addLayout(form)
-
-        self.recode_cb = QCheckBox("Re-encode container")
-        self.recode_cb.setToolTip("Slower. Only needed if remuxing into the chosen container fails.")
-        col.addWidget(self.recode_cb)
         col.addStretch()
         return col
 
@@ -1017,17 +1050,17 @@ class YTDLPWindow(QMainWindow):
 
         playlist_range = QHBoxLayout()
         playlist_range.setSpacing(8)
-        playlist_range.addWidget(self._field_label("From"))
+        playlist_range.addWidget(self._field_label("Items"))
         self.playlist_start_spin = QSpinBox()
         self.playlist_start_spin.setRange(0, 9999)
-        self.playlist_start_spin.setSpecialValueText("Start")
-        self.playlist_start_spin.setToolTip("1-based start index. Start means the first item.")
+        self.playlist_start_spin.setSpecialValueText("First")
+        self.playlist_start_spin.setToolTip("1-based start index. First means the beginning of the playlist.")
         playlist_range.addWidget(self.playlist_start_spin, 1)
-        playlist_range.addWidget(self._field_label("to"))
+        playlist_range.addWidget(self._field_label("–"))
         self.playlist_end_spin = QSpinBox()
         self.playlist_end_spin.setRange(0, 9999)
-        self.playlist_end_spin.setSpecialValueText("End")
-        self.playlist_end_spin.setToolTip("1-based end index. End means the last item.")
+        self.playlist_end_spin.setSpecialValueText("Last")
+        self.playlist_end_spin.setToolTip("1-based end index. Last means the end of the playlist.")
         playlist_range.addWidget(self.playlist_end_spin, 1)
         col.addLayout(playlist_range)
         col.addStretch()
@@ -1037,16 +1070,22 @@ class YTDLPWindow(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(self._section_title("Activity"))
         row.addStretch()
+        self.update_btn = QPushButton("Check for updates")
+        self.update_btn.setObjectName("linkBtn")
+        self.update_btn.setCursor(Qt.PointingHandCursor)
+        self.update_btn.setToolTip("Update the local yt-dlp binary")
+        self.update_btn.clicked.connect(self.start_update)
         self.clear_btn = QPushButton("Clear")
         self.clear_btn.setObjectName("linkBtn")
         self.clear_btn.setCursor(Qt.PointingHandCursor)
         self.clear_btn.setToolTip("Clear the activity log (Ctrl+L)")
         self.clear_btn.clicked.connect(self.clear_log)
+        row.addWidget(self.update_btn)
         row.addWidget(self.clear_btn)
         return row
 
     def apply_theme(self):
-        self.setStyleSheet(app_stylesheet(make_check_icon_path()))
+        self.setStyleSheet(app_stylesheet(make_check_icon_path(), make_chevron_icon_path()))
 
     def setup_shortcuts(self):
         download_shortcut = QShortcut(QKeySequence("Return"), self.url_input)

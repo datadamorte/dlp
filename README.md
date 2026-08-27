@@ -101,7 +101,7 @@ python -m unittest discover -s . -p 'test_*.py'
 | **Thumbnail** | Save the video thumbnail |
 | **Description** | Save the description as a text file |
 | **Download playlist** | If the URL is a playlist, download all entries instead of a single video |
-| **From / to** | 1-based index range when a playlist is enabled (`Start` / `End` = unbounded) |
+| **Items** | 1-based playlist index range when a playlist is enabled (`First` / `Last` = unbounded) |
 
 Video files are saved as `Title [id].ext` to avoid overwriting same-named videos. Playlists go into a subfolder named after the playlist.
 
