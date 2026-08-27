@@ -1,8 +1,53 @@
-# yt-dlp GUI
+# dlp
 
-A desktop app for [yt-dlp](https://github.com/yt-dlp/yt-dlp) — download video and audio from YouTube and many other sites without using the command line.
+**Desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp).** Download video and audio from YouTube, Twitch, Twitter, and 1,000+ other sites — no command line.
 
-Built with **Python** and **PyQt5**. Dark, compact desktop UI with a native menu bar, live progress, and an activity log.
+[![CI](https://github.com/datadamorte/dlp/actions/workflows/ci.yml/badge.svg)](https://github.com/datadamorte/dlp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
+
+![dlp screenshot](docs/screenshot.png)
+
+Paste a URL, pick a quality, click **Download**. The app keeps yt-dlp up to date, remembers your folder, and can use browser cookies when a site returns 403.
+
+If this saves you time, a star helps other people find it.
+
+## Install
+
+### Portable build (Windows, macOS, Linux)
+
+Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dlp/releases/tag/v1.2.0)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
+
+The first launch downloads a `yt-dlp` binary if needed. [ffmpeg](https://ffmpeg.org/) is recommended so video and audio can be merged.
+
+### Run from source
+
+**Python 3.10+** is required.
+
+```bash
+git clone https://github.com/datadamorte/dlp.git
+cd dlp
+```
+
+**macOS / Linux:**
+
+```bash
+chmod +x setup.sh
+./setup.sh
+source venv/bin/activate
+python yt_dlp_gui.py
+```
+
+**Windows:**
+
+```cmd
+setup.bat
+venv\Scripts\activate
+python yt_dlp_gui.py
+```
+
+Or manually: `python3 -m venv venv`, activate it, then `pip install -r requirements.txt`.
 
 ## Features
 
@@ -17,75 +62,17 @@ Built with **Python** and **PyQt5**. Dark, compact desktop UI with a native menu
 | **UX** | Live progress (percent, speed, ETA), activity log, clipboard URL detection, drag-and-drop URLs, Reveal folder |
 | **Updates** | Auto-updates yt-dlp on launch; **Check for updates** in the header or Help menu anytime |
 
-Works on **Windows**, **macOS**, and **Linux**.
-
-## Requirements
-
-- **Python 3.10+** (yt-dlp has deprecated 3.9)
-- Dependencies from `requirements.txt` (PyQt5, yt-dlp)
-- **ffmpeg** (recommended) — needed to merge separate video/audio streams into one file
-
-The app will download a `yt-dlp` binary if none is found, and checks for yt-dlp updates every time it starts. A warning is shown if ffmpeg is missing.
-
-## Quick start
-
-### 1. Clone and enter the project
-
-```bash
-cd dlp   # or your clone path
-```
-
-### 2. Create a virtual environment
-
-**macOS / Linux:**
-
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-Or manually:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Windows (Command Prompt):**
-
-```cmd
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Or run `setup.bat` on Windows to create the venv and install dependencies in one step.
-
-### 3. Run
-
-```bash
-python yt_dlp_gui.py
-```
-
-On first launch (or if `yt-dlp` is missing), the app installs it automatically in the background. On later launches it runs a background update check so you stay current.
-
-### Tests
-
-```bash
-python -m unittest discover -s . -p 'test_*.py'
-```
-
 ## Usage
 
-1. Activate the virtual environment (if it isn’t already).
-2. Start the app: `python yt_dlp_gui.py`
-3. Paste a URL, drop one onto the window, or copy one — clipboard detection may fill the field if it is empty.
-4. Pick quality, container, and any extras.
-5. Choose the save location if needed.
-6. Click **Download**. Use **Cancel** or **Esc** to stop a run in progress.
+1. Start the app (portable exe or `python yt_dlp_gui.py`).
+2. Paste a URL, drop one onto the window, or copy one — clipboard detection fills the field if it is empty.
+3. Pick quality, container, and any extras.
+4. Choose the save location if needed.
+5. Click **Download**. Use **Cancel** or **Esc** to stop a run in progress.
 
-## Options
+Video files are saved as `Title [id].ext` so same-named videos do not overwrite each other. Playlists go into a subfolder named after the playlist. Settings such as the last output directory are remembered between sessions.
+
+### Options
 
 | Control | Description |
 |---------|-------------|
@@ -103,11 +90,7 @@ python -m unittest discover -s . -p 'test_*.py'
 | **Download playlist** | If the URL is a playlist, download all entries instead of a single video |
 | **Items** | 1-based playlist index range when a playlist is enabled (`First` / `Last` = unbounded) |
 
-Video files are saved as `Title [id].ext` to avoid overwriting same-named videos. Playlists go into a subfolder named after the playlist.
-
-Settings such as the last output directory are remembered between sessions.
-
-## Keyboard shortcuts
+### Keyboard shortcuts
 
 | Shortcut | Action |
 |----------|--------|
@@ -120,6 +103,12 @@ Settings such as the last output directory are remembered between sessions.
 | **Ctrl+O** | Reveal the save folder |
 | **Ctrl+Shift+O** | Choose a save folder |
 
+## Tests
+
+```bash
+python -m unittest discover -s . -p 'test_*.py'
+```
+
 ## Project layout
 
 ```
@@ -127,12 +116,15 @@ dlp/
 ├── yt_dlp_gui.py      # Desktop GUI
 ├── ytdlp_core.py      # Command building, path lookup, progress parsing
 ├── test_ytdlp_core.py # Unit tests (no network)
-├── requirements.txt   # Python dependencies
-├── setup.sh           # macOS / Linux one-shot setup
-├── setup.bat          # Windows one-shot setup
-├── yt-dlp / yt-dlp.exe  # Optional local binary (auto-managed)
+├── packaging/build.py # PyInstaller portable build
+├── docs/screenshot.png
+├── requirements.txt
+├── setup.sh / setup.bat
+├── LICENSE            # MIT
 └── README.md
 ```
+
+yt-dlp itself is **not** stored in this repo. The app downloads it next to the executable on first run, or uses a copy on your `PATH`.
 
 ## Troubleshooting
 
@@ -148,27 +140,15 @@ YouTube (and some other sites) may block anonymous or bot-like clients.
 
 The app warns on startup if ffmpeg is missing. Install it and ensure it is on your `PATH`:
 
-**macOS:**
+**macOS:** `brew install ffmpeg`
 
-```bash
-brew install ffmpeg
-```
+**Linux (Debian/Ubuntu):** `sudo apt install ffmpeg`
 
-**Linux (Debian/Ubuntu):**
-
-```bash
-sudo apt install ffmpeg
-```
-
-**Linux (Fedora):**
-
-```bash
-sudo dnf install ffmpeg
-```
+**Linux (Fedora):** `sudo dnf install ffmpeg`
 
 **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add the `bin` folder to your system `PATH`.
 
-If a chosen container fails to remux, enable **Re-encode container** (slower, re-encodes video).
+If a chosen container fails to remux, enable **Re-encode if remux fails** (slower, re-encodes video).
 
 ### Startup update failed
 
@@ -178,14 +158,29 @@ If the log says the startup update was skipped, downloads still work. Fix networ
 pip install -U yt-dlp
 ```
 
-### Python version warning
+### Windows SmartScreen / antivirus
 
-Use **Python 3.10 or newer**. Older versions may work poorly or fail with current yt-dlp releases.
+Portable PyInstaller builds are often unsigned, so Windows may warn on first run. That is expected until the build is code-signed. You can also run from source with Python if you prefer.
+
+### Python version
+
+Use **Python 3.10 or newer**. Older versions may fail with current yt-dlp releases.
 
 ### yt-dlp missing entirely
 
-Place a binary named `yt-dlp` (or `yt-dlp.exe` on Windows) next to `yt_dlp_gui.py`, install via pip, or let the app download it from the [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) page on first run.
+Let the app download it on first run, install via pip, or place a binary named `yt-dlp` (or `yt-dlp.exe` on Windows) next to the app.
+
+## Building a portable bundle locally
+
+```bash
+pip install -r requirements.txt pyinstaller
+python packaging/build.py --bundle
+```
+
+Output is `dist/yt-dlp-gui/` (or `yt-dlp-gui.app` on macOS) plus a zip/tarball next to the repo root. GitHub Actions does the same on each `v*` tag.
 
 ## License
+
+MIT. See [LICENSE](LICENSE).
 
 This project is a thin GUI around [yt-dlp](https://github.com/yt-dlp/yt-dlp). Respect the terms of service of sites you download from, and local copyright law.
