@@ -8,4 +8,5 @@ pip install -r requirements.txt
 echo Setup complete! To run the application:
 echo 1. Activate venv: venv\Scripts\activate.bat
 echo 2. Run: python yt_dlp_gui.py
+echo 3. Tests: python -m unittest discover -s . -p test_*.py
 pause

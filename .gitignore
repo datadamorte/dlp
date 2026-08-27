@@ -30,11 +30,19 @@ downloads/
 *.part
 *.ytdl
 *.temp
+*.download
+
+# Auto-managed yt-dlp binaries
+/yt-dlp
+/yt-dlp.exe
+/yt-dlp_macos
 
 # Python / Virtual Environment
 venv/
+.venv
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .env
 
 # OS
