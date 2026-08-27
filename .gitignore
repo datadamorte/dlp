@@ -1,12 +1,50 @@
-/downloads
-venv
+# Downloads
+/downloads/
+downloads/
+
+# Downloaded media files
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.flv
+*.wmv
+*.m4v
+*.mp3
+*.m4a
+*.wav
+*.flac
+*.opus
+*.ogg
+*.aac
+
+# Subtitles and metadata
+*.srt
+*.vtt
+*.ass
+*.description
+*.info.json
+
+# Temporary download files
+*.part
+*.ytdl
+*.temp
+*.download
+
+# Auto-managed yt-dlp binaries
+/yt-dlp
+/yt-dlp.exe
+/yt-dlp_macos
+
+# Python / Virtual Environment
+venv/
 .venv
 __pycache__/
 *.py[cod]
 *.egg-info/
-.DS_Store
 .env
-/yt-dlp
-/yt-dlp.exe
-/yt-dlp_macos
-*.download
+
+# OS
+.DS_Store
+Thumbs.db
