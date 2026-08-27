@@ -1,6 +1,12 @@
 /downloads
 venv
+.venv
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .DS_Store
 .env
+/yt-dlp
+/yt-dlp.exe
+/yt-dlp_macos
+*.download

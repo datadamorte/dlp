@@ -8,12 +8,13 @@ Built with **Python** and **PyQt5**, with a dark Catppuccin Mocha–inspired the
 
 | Area | What you get |
 |------|----------------|
-| **Downloads** | Quality presets (best, 1080p, 720p, 480p, 360p, audio-only), container choice (MP4 / MKV / WEBM), playlists |
+| **Downloads** | Quality presets (best, 1080p, 720p, 480p, 360p, audio-only), container remux (MP4 / MKV / WEBM), optional re-encode |
 | **Audio** | Extract audio only as mp3, m4a, wav, or flac |
 | **Extras** | Subtitles, auto-generated captions, thumbnails, video descriptions |
-| **Control** | Custom save folder, speed limit (KB/s), cancel in progress |
+| **Playlists** | Optional full-playlist download, start/end range, one folder per playlist |
+| **Control** | Custom save folder, speed limit (KB/s), cancel in progress (Esc) |
 | **Auth** | Optional browser cookies (Chrome, Firefox, Safari, Edge, Brave, Opera) for 403 / restricted videos |
-| **UX** | Live progress bar and log, clipboard URL detection, keyboard shortcuts |
+| **UX** | Live progress (percent, speed, ETA), log, clipboard URL detection, drag-and-drop URLs, open-folder button |
 | **Updates** | Auto-updates yt-dlp on launch; manual **Update yt-dlp** button anytime |
 
 Works on **Windows**, **macOS**, and **Linux**.
@@ -21,10 +22,10 @@ Works on **Windows**, **macOS**, and **Linux**.
 ## Requirements
 
 - **Python 3.10+** (yt-dlp has deprecated 3.9)
-- Dependencies from `requirements.txt` (PyQt5, yt-dlp, requests)
+- Dependencies from `requirements.txt` (PyQt5, yt-dlp)
 - **ffmpeg** (recommended) — needed to merge separate video/audio streams into one file
 
-The app will download a `yt-dlp` binary if none is found, and checks for yt-dlp updates every time it starts.
+The app will download a `yt-dlp` binary if none is found, and checks for yt-dlp updates every time it starts. A warning is shown if ffmpeg is missing.
 
 ## Quick start
 
@@ -39,8 +40,16 @@ cd dlp   # or your clone path
 **macOS / Linux:**
 
 ```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+Or manually:
+
+```bash
 python3 -m venv venv
 source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 **Windows (Command Prompt):**
@@ -48,48 +57,53 @@ source venv/bin/activate
 ```cmd
 python -m venv venv
 venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 Or run `setup.bat` on Windows to create the venv and install dependencies in one step.
 
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run
+### 3. Run
 
 ```bash
 python yt_dlp_gui.py
 ```
 
-On first launch (or if `yt-dlp` is missing), the app installs it automatically. On later launches it runs a background update check so you stay current.
+On first launch (or if `yt-dlp` is missing), the app installs it automatically in the background. On later launches it runs a background update check so you stay current.
+
+### Tests
+
+```bash
+python -m unittest discover -s . -p 'test_*.py'
+```
 
 ## Usage
 
 1. Activate the virtual environment (if it isn’t already).
 2. Start the app: `python yt_dlp_gui.py`
-3. Paste a URL (or copy one — clipboard detection may fill the field for you).
+3. Paste a URL, drop one onto the window, or copy one — clipboard detection may fill the field if it is empty.
 4. Pick quality, container, and any extras.
 5. Choose the save location if needed.
-6. Click **START DOWNLOAD**. Use **CANCEL** to stop a run in progress.
+6. Click **START DOWNLOAD**. Use **CANCEL** or **Esc** to stop a run in progress.
 
 ## Options
 
 | Control | Description |
 |---------|-------------|
 | **Quality Profile** | Cap resolution or pick audio-only (`Best Quality`, `1080p`, `720p`, `480p`, `360p`, `Audio Only`) |
-| **Container** | Output container when downloading video: `Auto (Best)`, `MP4`, `MKV`, `WEBM` |
-| **Audio Format** | Used with **Extract Audio**: `mp3`, `m4a`, `wav`, `flac` |
+| **Container** | Remux output when downloading video: `Auto (Best)`, `MP4`, `MKV`, `WEBM` (no re-encode unless you opt in) |
+| **Re-encode container** | Force ffmpeg re-encode into the chosen container. Slower; only needed if remux fails |
+| **Audio Format** | Used with **Extract Audio** or **Audio Only**: `mp3`, `m4a`, `wav`, `flac` |
 | **Speed Limit** | Max download speed in KB/s (`Unlimited` when set to 0) |
 | **Use Cookies** | Browser whose cookies yt-dlp should use (helps with 403 / login walls) |
 | **Extract Audio** | Download only the audio track |
 | **Download Subtitles** | Save available subtitles |
-| **Auto-Subs** | Include auto-generated captions |
+| **Auto-Subs** | Include auto-generated captions (works even if official subs are off) |
 | **Thumbnail** | Save the video thumbnail |
 | **Description** | Save the description as a text file |
 | **Process Playlist** | If the URL is a playlist, download all entries instead of a single video |
+| **Playlist from / to** | 1-based index range when a playlist is enabled (`Start` / `End` = unbounded) |
+
+Video files are saved as `Title [id].ext` to avoid overwriting same-named videos. Playlists go into a subfolder named after the playlist.
 
 Settings such as the last output directory are remembered between sessions.
 
@@ -97,16 +111,21 @@ Settings such as the last output directory are remembered between sessions.
 
 | Shortcut | Action |
 |----------|--------|
-| **Ctrl+V** | Paste URL from clipboard |
+| **Ctrl+V** | Paste into the focused field (URL field accepts a copied link) |
 | **Enter** | Start download (when the URL field is focused) |
+| **Esc** | Cancel the download in progress |
 | **Ctrl+L** | Clear the log |
+| **Ctrl+O** | Open the save folder |
 
 ## Project layout
 
 ```
 dlp/
-├── yt_dlp_gui.py      # Main application
+├── yt_dlp_gui.py      # Desktop GUI
+├── ytdlp_core.py      # Command building, path lookup, progress parsing
+├── test_ytdlp_core.py # Unit tests (no network)
 ├── requirements.txt   # Python dependencies
+├── setup.sh           # macOS / Linux one-shot setup
 ├── setup.bat          # Windows one-shot setup
 ├── yt-dlp / yt-dlp.exe  # Optional local binary (auto-managed)
 └── README.md
@@ -124,7 +143,7 @@ YouTube (and some other sites) may block anonymous or bot-like clients.
 
 ### “ffmpeg is not installed” / formats won’t merge
 
-Install ffmpeg and ensure it is on your `PATH`:
+The app warns on startup if ffmpeg is missing. Install it and ensure it is on your `PATH`:
 
 **macOS:**
 
@@ -145,6 +164,8 @@ sudo dnf install ffmpeg
 ```
 
 **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add the `bin` folder to your system `PATH`.
+
+If a chosen container fails to remux, enable **Re-encode container** (slower, re-encodes video).
 
 ### Startup update failed
 
