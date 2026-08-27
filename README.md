@@ -1,23 +1,23 @@
-# dlp
+# dropdlp
 
-**Desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp).** Download video and audio from YouTube, Twitch, Twitter, and 1,000+ other sites — no command line.
+**Desktop GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp).** Paste or drop a URL, pick a quality, download — YouTube, Twitch, Twitter, and 1,000+ other sites, no command line.
 
-[![CI](https://github.com/datadamorte/dlp/actions/workflows/ci.yml/badge.svg)](https://github.com/datadamorte/dlp/actions/workflows/ci.yml)
+[![CI](https://github.com/datadamorte/dropdlp/actions/workflows/ci.yml/badge.svg)](https://github.com/datadamorte/dropdlp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
 
-![dlp screenshot](docs/screenshot.png)
+![dropdlp screenshot](docs/screenshot.png)
 
-Paste a URL, pick a quality, click **Download**. The app keeps yt-dlp up to date, remembers your folder, and can use browser cookies when a site returns 403.
+Paste a URL, drop one on the window, pick a quality, click **Download**. dropdlp keeps yt-dlp up to date, remembers your folder, and can use browser cookies when a site returns 403.
 
-If this saves you time, a star helps other people find it.
+If dropdlp saves you time, a star helps other people find it.
 
 ## Install
 
 ### Portable build (Windows, macOS, Linux)
 
-Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dlp/releases/tag/v1.2.0)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
+Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dropdlp/releases/tag/v1.2.0)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
 
 The first launch downloads a `yt-dlp` binary if needed. [ffmpeg](https://ffmpeg.org/) is recommended so video and audio can be merged.
 
@@ -26,8 +26,8 @@ The first launch downloads a `yt-dlp` binary if needed. [ffmpeg](https://ffmpeg.
 **Python 3.10+** is required.
 
 ```bash
-git clone https://github.com/datadamorte/dlp.git
-cd dlp
+git clone https://github.com/datadamorte/dropdlp.git
+cd dropdlp
 ```
 
 **macOS / Linux:**
@@ -112,7 +112,7 @@ python -m unittest discover -s . -p 'test_*.py'
 ## Project layout
 
 ```
-dlp/
+dropdlp/
 ├── yt_dlp_gui.py      # Desktop GUI
 ├── ytdlp_core.py      # Command building, path lookup, progress parsing
 ├── test_ytdlp_core.py # Unit tests (no network)
