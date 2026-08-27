@@ -2,7 +2,7 @@
 
 A desktop app for [yt-dlp](https://github.com/yt-dlp/yt-dlp) — download video and audio from YouTube and many other sites without using the command line.
 
-Built with **Python** and **PyQt5**, with a dark Catppuccin Mocha–inspired theme.
+Built with **Python** and **PyQt5**. Dark, compact desktop UI with a native menu bar, live progress, and an activity log.
 
 ## Features
 
@@ -14,8 +14,8 @@ Built with **Python** and **PyQt5**, with a dark Catppuccin Mocha–inspired the
 | **Playlists** | Optional full-playlist download, start/end range, one folder per playlist |
 | **Control** | Custom save folder, speed limit (KB/s), cancel in progress (Esc) |
 | **Auth** | Optional browser cookies (Chrome, Firefox, Safari, Edge, Brave, Opera) for 403 / restricted videos |
-| **UX** | Live progress (percent, speed, ETA), log, clipboard URL detection, drag-and-drop URLs, open-folder button |
-| **Updates** | Auto-updates yt-dlp on launch; manual **Update yt-dlp** button anytime |
+| **UX** | Live progress (percent, speed, ETA), activity log, clipboard URL detection, drag-and-drop URLs, Reveal folder |
+| **Updates** | Auto-updates yt-dlp on launch; **Check for updates** in the header or Help menu anytime |
 
 Works on **Windows**, **macOS**, and **Linux**.
 
@@ -83,25 +83,25 @@ python -m unittest discover -s . -p 'test_*.py'
 3. Paste a URL, drop one onto the window, or copy one — clipboard detection may fill the field if it is empty.
 4. Pick quality, container, and any extras.
 5. Choose the save location if needed.
-6. Click **START DOWNLOAD**. Use **CANCEL** or **Esc** to stop a run in progress.
+6. Click **Download**. Use **Cancel** or **Esc** to stop a run in progress.
 
 ## Options
 
 | Control | Description |
 |---------|-------------|
-| **Quality Profile** | Cap resolution or pick audio-only (`Best Quality`, `1080p`, `720p`, `480p`, `360p`, `Audio Only`) |
+| **Quality** | Cap resolution or pick audio-only (`Best Quality`, `1080p`, `720p`, `480p`, `360p`, `Audio Only`) |
 | **Container** | Remux output when downloading video: `Auto (Best)`, `MP4`, `MKV`, `WEBM` (no re-encode unless you opt in) |
 | **Re-encode container** | Force ffmpeg re-encode into the chosen container. Slower; only needed if remux fails |
-| **Audio Format** | Used with **Extract Audio** or **Audio Only**: `mp3`, `m4a`, `wav`, `flac` |
-| **Speed Limit** | Max download speed in KB/s (`Unlimited` when set to 0) |
-| **Use Cookies** | Browser whose cookies yt-dlp should use (helps with 403 / login walls) |
-| **Extract Audio** | Download only the audio track |
-| **Download Subtitles** | Save available subtitles |
-| **Auto-Subs** | Include auto-generated captions (works even if official subs are off) |
+| **Audio** | Used with **Extract audio** or **Audio Only**: `mp3`, `m4a`, `wav`, `flac` |
+| **Rate limit** | Max download speed in KB/s (`No limit` when set to 0) |
+| **Cookies** | Browser whose cookies yt-dlp should use (helps with 403 / login walls) |
+| **Extract audio** | Download only the audio track |
+| **Subtitles** | Save available subtitles |
+| **Auto-captions** | Include auto-generated captions (works even if official subs are off) |
 | **Thumbnail** | Save the video thumbnail |
 | **Description** | Save the description as a text file |
-| **Process Playlist** | If the URL is a playlist, download all entries instead of a single video |
-| **Playlist from / to** | 1-based index range when a playlist is enabled (`Start` / `End` = unbounded) |
+| **Download playlist** | If the URL is a playlist, download all entries instead of a single video |
+| **Items** | 1-based playlist index range when a playlist is enabled (`First` / `Last` = unbounded) |
 
 Video files are saved as `Title [id].ext` to avoid overwriting same-named videos. Playlists go into a subfolder named after the playlist.
 
@@ -112,10 +112,13 @@ Settings such as the last output directory are remembered between sessions.
 | Shortcut | Action |
 |----------|--------|
 | **Ctrl+V** | Paste into the focused field (URL field accepts a copied link) |
+| **Ctrl+Shift+V** | Paste a URL from the clipboard into the URL field |
 | **Enter** | Start download (when the URL field is focused) |
+| **Ctrl+Enter** | Start download from anywhere in the window |
 | **Esc** | Cancel the download in progress |
-| **Ctrl+L** | Clear the log |
-| **Ctrl+O** | Open the save folder |
+| **Ctrl+L** | Clear the activity log |
+| **Ctrl+O** | Reveal the save folder |
+| **Ctrl+Shift+O** | Choose a save folder |
 
 ## Project layout
 
@@ -137,7 +140,7 @@ dlp/
 
 YouTube (and some other sites) may block anonymous or bot-like clients.
 
-1. Set **Use Cookies** to a browser where you are logged in (e.g. Safari, Chrome, Firefox).
+1. Set **Cookies** to a browser where you are logged in (e.g. Safari, Chrome, Firefox).
 2. Keep that browser closed or unlocked as needed for cookie access on your OS.
 3. Retry the download — yt-dlp will use that browser’s cookies.
 
@@ -169,7 +172,7 @@ If a chosen container fails to remux, enable **Re-encode container** (slower, re
 
 ### Startup update failed
 
-If the log says the startup update was skipped, downloads still work. Fix network access or click **Update yt-dlp** later. You can also install or upgrade manually:
+If the log says the startup update was skipped, downloads still work. Fix network access or click **Check for updates** later. You can also install or upgrade manually:
 
 ```bash
 pip install -U yt-dlp

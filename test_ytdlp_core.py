@@ -254,9 +254,10 @@ class GuiSmokeTests(unittest.TestCase):
 
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PyQt5.QtCore import QSettings
-        from yt_dlp_gui import ModernYTDLPGUI
+        from yt_dlp_gui import ModernYTDLPGUI, YTDLPWindow
 
         app = QApplication.instance() or QApplication(["yt-dlp-gui-test"])
+        self.assertIs(ModernYTDLPGUI, YTDLPWindow)
         with tempfile.TemporaryDirectory() as tmp:
             settings = QSettings(os.path.join(tmp, "settings.ini"), QSettings.IniFormat)
             window = ModernYTDLPGUI(skip_startup=True, settings=settings)
