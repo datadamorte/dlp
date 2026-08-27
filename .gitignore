@@ -45,6 +45,13 @@ __pycache__/
 *.egg-info/
 .env
 
+# Packaging
+dist/
+build/
+*.spec
+yt-dlp-gui-*.zip
+yt-dlp-gui-*.tar.gz
+
 # OS
 .DS_Store
 Thumbs.db
