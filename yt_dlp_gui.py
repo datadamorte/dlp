@@ -448,7 +448,6 @@ def app_stylesheet(check_path, chevron_path):
             font-family: "Menlo", "SF Mono", "Cascadia Mono", "Consolas", "Ubuntu Mono", monospace;
             font-size: 12px;
             padding: 10px 12px;
-            color: #b8b8be;
         }}
 
         QScrollBar:vertical {{
@@ -720,6 +719,7 @@ class YTDLPWindow(QMainWindow):
     def _wrap_panel(self, inner_layout):
         frame = QFrame()
         frame.setObjectName("panel")
+        frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         wrap = QVBoxLayout(frame)
         wrap.setContentsMargins(18, 16, 18, 16)
         wrap.setSpacing(12)
@@ -731,10 +731,10 @@ class YTDLPWindow(QMainWindow):
             return
         colors = {
             "info": "#9a9aa2",
-            "ok": "#8fbf9a",
-            "warn": "#c9b07a",
-            "error": "#d98989",
-            "raw": "#b8b8be",
+            "ok": "#86c994",
+            "warn": "#d4b56a",
+            "error": "#e89090",
+            "raw": "#c4c4ca",
         }
         stamp = datetime.now().strftime("%H:%M:%S")
         color = colors.get(level, colors["info"])
@@ -834,6 +834,10 @@ class YTDLPWindow(QMainWindow):
         self.log_output.setUndoRedoEnabled(False)
         self.log_output.document().setMaximumBlockCount(4000)
         self.log_output.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        log_palette = self.log_output.palette()
+        log_palette.setColor(QPalette.Text, QColor("#c4c4ca"))
+        log_palette.setColor(QPalette.Base, QColor("#0c0c0e"))
+        self.log_output.setPalette(log_palette)
         layout.addWidget(self.log_output, 1)
 
         self.status_label = QLabel("Ready")
@@ -998,6 +1002,7 @@ class YTDLPWindow(QMainWindow):
             self.cookies_combo,
         ):
             widget.setMinimumHeight(30)
+            widget.setMinimumWidth(200)
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.recode_cb = QCheckBox("Re-encode if remux fails")
@@ -1008,7 +1013,7 @@ class YTDLPWindow(QMainWindow):
         form.setHorizontalSpacing(12)
         form.setVerticalSpacing(8)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        form.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         form.addRow(self._field_label("Quality", self.format_combo), self.format_combo)
         form.addRow(self._field_label("Container", self.video_format_combo), self.video_format_combo)
         form.addRow("", self.recode_cb)
@@ -1343,7 +1348,14 @@ class YTDLPWindow(QMainWindow):
     def update_log(self, message):
         if self._auto_updating:
             return
-        self.log(message, "raw")
+        upper = message.upper()
+        if "ERROR:" in upper or upper.startswith("ERROR"):
+            level = "error"
+        elif "WARNING:" in upper:
+            level = "warn"
+        else:
+            level = "raw"
+        self.log(message, level)
 
     def download_finished(self, message):
         self.log(message, "ok")
