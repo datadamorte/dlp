@@ -17,11 +17,9 @@ If this saves you time, a star helps other people find it.
 
 ### Portable build (Windows, macOS, Linux)
 
-Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dlp/releases)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
+Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dlp/releases/tag/v1.2.0)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
 
 The first launch downloads a `yt-dlp` binary if needed. [ffmpeg](https://ffmpeg.org/) is recommended so video and audio can be merged.
-
-> GitHub Releases are produced by tagging `v*` (for example `v1.2.0`). Until a tag exists, use **Run from source** below, or run the **Release** workflow from the Actions tab.
 
 ### Run from source
 
