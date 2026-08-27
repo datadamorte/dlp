@@ -41,22 +41,50 @@ def ytdlp_release_url(system: Optional[str] = None) -> str:
     return "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
 
 
+def is_runnable_ytdlp(path: str, timeout: float = 8.0) -> bool:
+    """Return True if path looks like a yt-dlp executable that can actually start."""
+    if not path or not os.path.isfile(path):
+        return False
+    kwargs = {
+        "capture_output": True,
+        "text": True,
+        "timeout": timeout,
+        "encoding": "utf-8",
+        "errors": "replace",
+    }
+    if platform.system() == "Windows":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        result = subprocess.run([path, "--version"], **kwargs)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return False
+    return result.returncode == 0
+
+
 def resolve_ytdlp_path(
     app_dir: str,
     cwd: Optional[str] = None,
     *,
     which: Callable[[str], Optional[str]] = shutil.which,
     system: Optional[str] = None,
+    is_runnable: Callable[[str], bool] = is_runnable_ytdlp,
 ) -> Optional[str]:
-    """Find yt-dlp next to the app, in cwd, or on PATH."""
+    """Find a working yt-dlp next to the app, in cwd, or on PATH."""
     exe_name = ytdlp_exe_name(system)
     candidates = [os.path.join(app_dir, exe_name)]
     if cwd:
         candidates.append(os.path.join(cwd, exe_name))
+    seen = set()
     for path in candidates:
-        if os.path.isfile(path):
+        if path in seen:
+            continue
+        seen.add(path)
+        if os.path.isfile(path) and is_runnable(path):
             return path
-    return which(exe_name)
+    found = which(exe_name)
+    if found and is_runnable(found):
+        return found
+    return None
 
 
 def is_valid_url(url: str) -> bool:

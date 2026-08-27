@@ -211,6 +211,7 @@ class PathResolutionTests(unittest.TestCase):
                 cwd,
                 which=lambda _name: "/usr/bin/yt-dlp",
                 system="Linux",
+                is_runnable=lambda _path: True,
             )
             self.assertEqual(found, local)
 
@@ -221,8 +222,23 @@ class PathResolutionTests(unittest.TestCase):
                 empty,
                 which=lambda _name: "/usr/local/bin/yt-dlp",
                 system="Linux",
+                is_runnable=lambda _path: True,
             )
             self.assertEqual(found, "/usr/local/bin/yt-dlp")
+
+    def test_skips_unrunnable_local_binary(self):
+        with tempfile.TemporaryDirectory() as app_dir:
+            local = os.path.join(app_dir, "yt-dlp")
+            with open(local, "w", encoding="utf-8") as handle:
+                handle.write("not-an-executable")
+            found = resolve_ytdlp_path(
+                app_dir,
+                app_dir,
+                which=lambda _name: "/usr/bin/yt-dlp",
+                system="Linux",
+                is_runnable=lambda path: path != local,
+            )
+            self.assertEqual(found, "/usr/bin/yt-dlp")
 
 
 class GuiSmokeTests(unittest.TestCase):
@@ -277,6 +293,15 @@ class HelperTests(unittest.TestCase):
     def test_ffmpeg_available_respects_which(self):
         self.assertTrue(ffmpeg_available(which=lambda _name: "/usr/bin/ffmpeg"))
         self.assertFalse(ffmpeg_available(which=lambda _name: None))
+
+    def test_is_runnable_rejects_garbage_file(self):
+        from ytdlp_core import is_runnable_ytdlp
+        with tempfile.TemporaryDirectory() as tmp:
+            junk = os.path.join(tmp, "yt-dlp")
+            with open(junk, "w", encoding="utf-8") as handle:
+                handle.write("nope")
+            os.chmod(junk, 0o755)
+            self.assertFalse(is_runnable_ytdlp(junk, timeout=2))
 
 
 if __name__ == "__main__":
