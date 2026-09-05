@@ -9,12 +9,15 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import urllib.request
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 from urllib.parse import urlparse
 
-USER_AGENT = "yt-dlp-gui/1.1"
+APP_NAME = "dropdlp"
+APP_VERSION = "1.3.0"
+USER_AGENT = f"{APP_NAME}/{APP_VERSION}"
 OUTPUT_TEMPLATE = "%(title)s [%(id)s].%(ext)s"
 PLAYLIST_TEMPLATE = os.path.join(
     "%(playlist_title|NA)s",
@@ -61,17 +64,57 @@ def is_runnable_ytdlp(path: str, timeout: float = 8.0) -> bool:
     return result.returncode == 0
 
 
+def is_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def executable_dir() -> str:
+    """Directory containing this process's executable (or the source file)."""
+    if is_frozen():
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def portable_root() -> str:
+    """User-visible folder next to the exe, or next to the .app on macOS."""
+    exe_dir = executable_dir()
+    if os.path.basename(exe_dir) == "MacOS":
+        contents = os.path.dirname(exe_dir)
+        if os.path.basename(contents) == "Contents":
+            return os.path.dirname(os.path.dirname(contents))
+    return exe_dir
+
+
+def ytdlp_install_dir(system: Optional[str] = None, home: Optional[str] = None) -> str:
+    """Writable location for the downloaded yt-dlp binary (not inside a .app)."""
+    system = system or platform.system()
+    home = os.path.abspath(home or os.path.expanduser("~"))
+    if system == "Darwin":
+        return os.path.join(home, "Library", "Application Support", APP_NAME)
+    if system == "Windows":
+        base = os.environ.get("LOCALAPPDATA") or home
+        return os.path.join(base, APP_NAME)
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return os.path.join(xdg, APP_NAME)
+    return os.path.join(home, ".local", "share", APP_NAME)
+
+
 def resolve_ytdlp_path(
     app_dir: str,
     cwd: Optional[str] = None,
     *,
+    extra_dirs: Optional[Iterable[str]] = None,
     which: Callable[[str], Optional[str]] = shutil.which,
     system: Optional[str] = None,
     is_runnable: Callable[[str], bool] = is_runnable_ytdlp,
 ) -> Optional[str]:
-    """Find a working yt-dlp next to the app, in cwd, or on PATH."""
+    """Find a working yt-dlp next to the app, in extra dirs, in cwd, or on PATH."""
     exe_name = ytdlp_exe_name(system)
     candidates = [os.path.join(app_dir, exe_name)]
+    for folder in extra_dirs or ():
+        if folder:
+            candidates.append(os.path.join(folder, exe_name))
     if cwd:
         candidates.append(os.path.join(cwd, exe_name))
     seen = set()

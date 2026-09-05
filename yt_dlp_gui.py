@@ -54,21 +54,23 @@ from PyQt5.QtWidgets import (
 )
 
 from ytdlp_core import (
+    APP_VERSION,
     build_ytdlp_command,
     download_file,
     ffmpeg_available,
     first_url_in_text,
+    is_frozen,
     is_valid_url,
     make_executable,
     parse_progress_line,
     popen_kwargs,
+    portable_root,
     resolve_ytdlp_path,
     terminate_process,
     ytdlp_exe_name,
+    ytdlp_install_dir,
     ytdlp_release_url,
 )
-
-APP_VERSION = "1.2.0"
 WINDOW_TITLE = "yt-dlp Downloader"
 
 
@@ -607,6 +609,12 @@ class UpdateThread(QThread):
 
             output_text = "\n".join(output_lines)
             if self.process.returncode == 100 or "installed yt-dlp with pip" in output_text:
+                if is_frozen():
+                    self.error.emit(
+                        "yt-dlp on PATH was installed with pip; this portable app "
+                        "cannot upgrade it via pip. It will still run."
+                    )
+                    return
                 self.progress.emit("Detected pip installation, updating via pip...")
                 self._update_via_pip()
             else:
@@ -616,6 +624,11 @@ class UpdateThread(QThread):
 
     def _update_via_pip(self):
         try:
+            if is_frozen():
+                self.error.emit(
+                    "This portable build cannot upgrade yt-dlp via pip."
+                )
+                return
             cmd = [sys.executable, "-m", "pip", "install", "-U", "yt-dlp"]
             self.process = subprocess.Popen(cmd, **popen_kwargs())
             for line in self.process.stdout:
@@ -688,13 +701,22 @@ class YTDLPWindow(QMainWindow):
             QTimer.singleShot(200, self.warn_if_ffmpeg_missing)
 
     def _app_dir(self):
-        return os.path.dirname(os.path.abspath(__file__))
+        return portable_root()
+
+    def _install_dir(self):
+        path = ytdlp_install_dir()
+        os.makedirs(path, exist_ok=True)
+        return path
 
     def _ytdlp_exe_name(self):
         return ytdlp_exe_name()
 
     def resolve_ytdlp_path(self):
-        return resolve_ytdlp_path(self._app_dir(), os.getcwd())
+        return resolve_ytdlp_path(
+            self._install_dir(),
+            os.getcwd(),
+            extra_dirs=[self._app_dir()],
+        )
 
     def _field_label(self, text, buddy=None):
         label = QLabel(text)
@@ -767,7 +789,7 @@ class YTDLPWindow(QMainWindow):
             self.start_update(auto=True)
             return
 
-        local_path = os.path.join(self._app_dir(), exe_name)
+        local_path = os.path.join(self._install_dir(), exe_name)
         self.log(f"{exe_name} not found. Downloading automatically…", "warn")
         self.download_btn.setEnabled(False)
         self.update_btn.setEnabled(False)
@@ -1387,7 +1409,8 @@ class YTDLPWindow(QMainWindow):
         if not exe_path:
             if not auto:
                 self.log(
-                    f"{self._ytdlp_exe_name()} not found. Install it or place it in the app directory.",
+                    f"{self._ytdlp_exe_name()} not found. Install it, or place a copy "
+                    "next to the app or in the dropdlp data folder.",
                     "error",
                 )
             return
@@ -1452,25 +1475,41 @@ class YTDLPWindow(QMainWindow):
 ModernYTDLPGUI = YTDLPWindow
 
 
-def main():
+def main(argv=None):
+    argv = list(sys.argv if argv is None else argv)
+    smoke = "--smoke-test" in argv
+    if smoke:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        argv = [item for item in argv if item != "--smoke-test"]
+        sys.argv = argv
+
     if hasattr(Qt, "AA_EnableHighDpiScaling"):
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     if hasattr(Qt, "AA_UseHighDpiPixmaps"):
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
-    app = QApplication(sys.argv)
+    app = QApplication(argv)
     app.setStyle("Fusion")
     app.setFont(preferred_ui_font())
     apply_dark_palette(app)
     app.setWindowIcon(make_app_icon())
-    app.setApplicationName("yt-dlp")
+    app.setApplicationName("dropdlp")
     app.setApplicationVersion(APP_VERSION)
-    app.setOrganizationName("YTDLPGui")
+    app.setOrganizationName("dropdlp")
 
-    window = YTDLPWindow()
+    window = YTDLPWindow(skip_startup=smoke)
+    if smoke:
+        window.collect_options()
+        marker = os.environ.get("DROP_DLP_SMOKE_MARKER")
+        if marker:
+            with open(marker, "w", encoding="utf-8") as handle:
+                handle.write(f"ok {APP_VERSION}\n")
+        print(f"smoke-test ok {APP_VERSION}", flush=True)
+        return 0
+
     window.show()
-    sys.exit(app.exec_())
+    return app.exec_()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
