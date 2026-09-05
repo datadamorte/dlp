@@ -17,7 +17,16 @@ If dropdlp saves you time, a star helps other people find it.
 
 ### Portable build (Windows, macOS, Linux)
 
-Grab the latest zip/tarball from **[Releases](https://github.com/datadamorte/dropdlp/releases/tag/v1.2.0)**, unpack it, and run `yt-dlp-gui` (or `yt-dlp-gui.exe` on Windows).
+Grab the matching archive from **[Releases](https://github.com/datadamorte/dropdlp/releases/latest)**:
+
+| Platform | File |
+|----------|------|
+| Windows | `yt-dlp-gui-windows.zip` |
+| macOS Apple Silicon (M1 and later) | `yt-dlp-gui-macos-arm64.zip` |
+| macOS Intel | `yt-dlp-gui-macos-x64.zip` |
+| Linux x86_64 | `yt-dlp-gui-linux.tar.gz` |
+
+Unpack it and run `yt-dlp-gui` (`yt-dlp-gui.exe` on Windows, or `yt-dlp-gui.app` on macOS).
 
 The first launch downloads a `yt-dlp` binary if needed. [ffmpeg](https://ffmpeg.org/) is recommended so video and audio can be merged.
 
@@ -162,6 +171,16 @@ pip install -U yt-dlp
 
 Portable PyInstaller builds are often unsigned, so Windows may warn on first run. That is expected until the build is code-signed. You can also run from source with Python if you prefer.
 
+### macOS: “dropdlp / yt-dlp-gui cannot be opened”
+
+The portable `.app` is not notarized with an Apple Developer ID.
+
+- Use the **arm64** zip on Apple Silicon and the **x64** zip on Intel Macs.
+- After unzipping, right-click `yt-dlp-gui.app` → **Open** → **Open**.
+- If macOS still blocks it: `xattr -dr com.apple.quarantine yt-dlp-gui.app` in Terminal, then open the app again.
+
+Do not run the app from inside the zip window; copy it to Applications or another folder first.
+
 ### Python version
 
 Use **Python 3.10 or newer**. Older versions may fail with current yt-dlp releases.
@@ -177,7 +196,7 @@ pip install -r requirements.txt pyinstaller
 python packaging/build.py --bundle
 ```
 
-Output is `dist/yt-dlp-gui/` (or `yt-dlp-gui.app` on macOS) plus a zip/tarball next to the repo root. GitHub Actions does the same on each `v*` tag.
+Output is `dist/yt-dlp-gui/` (or `yt-dlp-gui.app` on macOS) plus a zip/tarball next to the repo root. The script preserves macOS `.app` symlinks, checks the archive, and launches `--smoke-test` so a broken bundle fails the build. GitHub Actions does the same on each `v*` tag and on pull requests.
 
 ## License
 

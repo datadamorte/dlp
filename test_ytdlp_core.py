@@ -1,6 +1,9 @@
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 from ytdlp_core import (
     PLAYLIST_TEMPLATE,
@@ -282,6 +285,33 @@ class GuiSmokeTests(unittest.TestCase):
             self.assertIn("--yes-playlist", cmd)
             window.close()
         self.assertIsNotNone(app)
+
+    @unittest.skipUnless(
+        os.environ.get("YTDLP_GUI_SMOKE", "1") == "1",
+        "GUI smoke test disabled",
+    )
+    def test_cli_smoke_flag_writes_marker(self):
+        try:
+            from PyQt5.QtWidgets import QApplication  # noqa: F401
+        except ImportError:
+            self.skipTest("PyQt5 is not installed")
+
+        env = os.environ.copy()
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        script = Path(__file__).resolve().parent / "yt_dlp_gui.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            marker = os.path.join(tmp, "smoke.txt")
+            env["DROP_DLP_SMOKE_MARKER"] = marker
+            result = subprocess.run(
+                [sys.executable, str(script), "--smoke-test"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=45,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertTrue(os.path.isfile(marker), result.stdout)
+            self.assertIn("smoke-test ok", result.stdout)
 
 
 class HelperTests(unittest.TestCase):
